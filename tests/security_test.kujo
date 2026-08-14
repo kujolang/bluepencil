@@ -5,10 +5,13 @@ func check(ok,label){if ok{passed=passed+1}else{failed=failed+1;eprint("FAIL: "+
 func opts(v){return parse_args(v,["json","dry-run","force"])}
 root:="/tmp/bluepencil-security-"+uuid_v4()
 check(!dispatch("init",opts(["--state",root+"/../escape"]))["ok"],"state traversal")
-secret:=root+"-secret.json";base:=parse_json(read_file("fixtures/core.json"));base["token"]="nope";write_file(secret,to_json(base),true)
+secret:=root+"-secret.json";base:=parse_json(read_file("fixtures/core.json"));base["provider_token"]="nope";write_file(secret,to_json(base),true)
 check(!dispatch("review",opts(["--state",root,"--input",secret,"--actor","reviewer"]))["ok"],"secret rejection")
-check(!dispatch("review",opts(["--state",root,"--input","fixtures/core.json","--actor","reviewer","--timestamp","bad"]))["ok"],"timestamp validation")
+check(!dispatch("review",opts(["--state",root,"--input","fixtures/core.json","--actor","reviewer","--timestamp","2026-13-40T25:61:61Z"]))["ok"],"timestamp range validation")
 check(!dispatch("show",opts(["--state",root,"--id","../escape"]))["ok"],"record traversal")
 created:=dispatch("review",opts(["--state",root,"--input","fixtures/core.json","--actor","reviewer","--id","review-secure","--timestamp","2026-08-14T05:00:00Z"]));check(created["ok"],"secure create")
 create_dir(root+"/locks/review-locked.lock");check(!dispatch("review",opts(["--state",root,"--input","fixtures/core.json","--actor","reviewer","--id","review-locked","--timestamp","2026-08-14T05:00:01Z"]))["ok"],"lock conflict");os_rmdir(root+"/locks/review-locked.lock")
-delete_file(secret);print(to_string(passed)+" passed; "+to_string(failed)+" failed");if failed>0{exit(1)}
+delete_file(secret)
+foreign_state:=root+"-foreign";check(dispatch("init",opts(["--state",foreign_state]))["ok"],"foreign state baseline");write_file(foreign_state+"/metadata.json","{\"schema_version\":\"1.0.0\",\"tool\":\"other-tool\",\"contract_version\":\"1.0.0\"}",true);check(!dispatch("init",opts(["--state",foreign_state]))["ok"],"incompatible state rejected")
+symlink_state:=root+"-symlink";outside_state:=root+"-outside";create_dir(symlink_state);create_dir(outside_state);linked:=spawn_process(["ln","-s",outside_state,symlink_state+"/records"],{"timeout_ms":5000,"max_output_bytes":4096});if linked.exitcode==0{check(!dispatch("init",opts(["--state",symlink_state]))["ok"],"managed directory symlink rejected")}
+print(to_string(passed)+" passed; "+to_string(failed)+" failed");if failed>0{exit(1)}
