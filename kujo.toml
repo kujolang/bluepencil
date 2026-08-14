@@ -1,0 +1,4 @@
+[package]
+name = "bluepencil"
+version = "0.1.0"
+entry = "bluepencil.kujo"
