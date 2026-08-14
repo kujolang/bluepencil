@@ -10,16 +10,19 @@ combines deterministic contract checks with independent human or optional-model
 judgment across consequence, distinctiveness, insight, defensibility, craft,
 brand integrity, format fidelity, and strategic purpose.
 
-## Readiness posture
+## Production capabilities
 
 BluePencil is ready for serious local review workflows with immutable review
 records, explicit reviewer and rubric identity, blocker precedence, structured
 verdicts, deterministic comparison, atomic storage, and the complete 18-case
-blind calibration corpus covering all 23 Publishing House roles. It does not
-average away blockers or claim that corpus integrity automates editorial taste.
+blind calibration corpus covering all 23 Publishing House roles. Production
+hardening also includes blinded scoring trends, signed versioned bundles,
+offline model-adapter conformance, deterministic format packs, accessibility
+capability evidence, and bounded streaming reports. It does not average away
+blockers or claim that corpus integrity automates editorial taste.
 
-See the [production review](docs/PRODUCTION_READINESS_REVIEW.md) and
-[next-session worklist](docs/NEXT_SESSION.md).
+See the [production review](docs/PRODUCTION_READINESS_REVIEW.md) and completed
+[hardening worklist](docs/NEXT_SESSION.md).
 
 ## Quick install
 
