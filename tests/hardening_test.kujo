@@ -1,0 +1,10 @@
+from src.hardening import score_blinded_run, disagreement_trend, sign_bundle, verify_bundle, bundle_upgrade_compatible, local_model_conformance, format_rule_pack, accessibility_conformance, streaming_review_report
+mut pass:=0;mut fail:=0;func check(ok,label){if ok{pass=pass+1}else{fail=fail+1;eprint("FAIL: "+label)}}
+run1:={"run_id":"one","blinded":true,"expected":["pass","revise"],"observed":["pass","pass"]};run2:={"run_id":"two","blinded":true,"expected":["pass","revise"],"observed":["pass","revise"]}
+check(score_blinded_run(run1)["matches"]==1,"blinded score");check(disagreement_trend([run1,run2])["points"][1]["direction"]=="improving","trend")
+bundle:={"bundle_id":"editorial","version":"1.1.0","rubric":{}};signed:=sign_bundle(bundle,"fixture-key-123456");check(signed["ok"]&&verify_bundle(bundle,signed["signature"],"fixture-key-123456"),"bundle signature");check(bundle_upgrade_compatible({"bundle_id":"editorial","version":"1.0.0"},bundle)["ok"],"upgrade")
+check(local_model_conformance({"adapter":"fixture","offline":true,"redaction_gate":"complete","model_output":{"verdict":"revise"}})["ok"],"model adapter");check(!local_model_conformance({"offline":true,"redaction_gate":"complete","model_output":{"api_key":"nope"}})["ok"],"redaction")
+for format in ["newsletter","social","case-study","audiovisual-script"]{check(format_rule_pack(format)["ok"],"format "+format)}
+check(accessibility_conformance({"declared":true,"capabilities":["alt-text","captions"]})["ok"],"accessibility")
+mut reviews:=[];mut i:=0;while i<1000{reviews=push(reviews,{"verdict":"pass"});i=i+1};report:=streaming_review_report(reviews,100);check(report["ok"]&&report["reviews"]==1000&&report["batches"]==10,"thousand review stream")
+print(to_string(pass)+" passed; "+to_string(fail)+" failed");if fail>0{exit(1)}
