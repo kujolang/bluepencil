@@ -1,0 +1,20 @@
+from src.common import get, has
+DIMENSIONS:=["consequence","distinctiveness","insight","defensibility","craft","brand_integrity","format_fidelity","strategic_purpose"]
+RATINGS:=["EXCEPTIONAL","STRONG","ADEQUATE","WEAK","FAILED","UNVERIFIED"]
+VERDICTS:=["pass","pass_with_queries","revise","blocked","reject","unverified"]
+export func record_type(command){if command=="review"{return "review"};if command=="calibrate"{return "calibration_run"};if command=="style"||command=="brand"||command=="claims"||command=="format"||command=="accessibility"{return "review_finding"};return replace_str(command," ","_")}
+export func id_prefix(command){kind:=record_type(command);if kind=="calibration_run"{return "calibration"};if kind=="review_finding"{return "finding"};return replace_str(kind,"_","-")}
+func require_text(payload,key){value:=get(payload,key,"");if type(value)!="string"||trim(value)==""{return "missing required field: "+key};if len(value)>32768{return "field exceeds 32 KiB: "+key};return ""}
+export func validate_command(command,payload,artifact){
+    if command=="review"{
+        for key in ["reviewer_id","artifact_id","rubric_version","verdict"]{error:=require_text(payload,key);if error!=""{return error}}
+        if !has(VERDICTS,payload["verdict"]){return "invalid review verdict"}
+        ratings:=get(payload,"dimensions",null);if type(ratings)!="dict"{return "review requires dimensions"}
+        for dimension in DIMENSIONS{if has_key(ratings,dimension)==0{return "missing quality dimension: "+dimension};if !has(RATINGS,ratings[dimension]){return "invalid rating for "+dimension}}
+        blockers:=get(payload,"blocking_findings",[]);if type(blockers)!="array"{return "blocking_findings must be an array"}
+        if len(blockers)>0&&(payload["verdict"]=="pass"||payload["verdict"]=="pass_with_queries"){return "blocking findings cannot be averaged away"}
+    }
+    if command=="calibrate"{for key in ["case_id","reviewer_id","rubric_version","judgment"]{error:=require_text(payload,key);if error!=""{return error}}}
+    if command=="style"||command=="brand"||command=="claims"||command=="format"||command=="accessibility"{error:=require_text(payload,"artifact_id");if error!=""{return error};if type(get(payload,"findings",null))!="array"{return "findings must be an array"}}
+    return ""
+}

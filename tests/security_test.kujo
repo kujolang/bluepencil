@@ -1,0 +1,14 @@
+from src.core import dispatch
+from src.args import parse_args
+mut passed:=0;mut failed:=0
+func check(ok,label){if ok{passed=passed+1}else{failed=failed+1;eprint("FAIL: "+label)}}
+func opts(v){return parse_args(v,["json","dry-run","force"])}
+root:="/tmp/bluepencil-security-"+uuid_v4()
+check(!dispatch("init",opts(["--state",root+"/../escape"]))["ok"],"state traversal")
+secret:=root+"-secret.json";base:=parse_json(read_file("fixtures/core.json"));base["token"]="nope";write_file(secret,to_json(base),true)
+check(!dispatch("review",opts(["--state",root,"--input",secret,"--actor","reviewer"]))["ok"],"secret rejection")
+check(!dispatch("review",opts(["--state",root,"--input","fixtures/core.json","--actor","reviewer","--timestamp","bad"]))["ok"],"timestamp validation")
+check(!dispatch("show",opts(["--state",root,"--id","../escape"]))["ok"],"record traversal")
+created:=dispatch("review",opts(["--state",root,"--input","fixtures/core.json","--actor","reviewer","--id","review-secure","--timestamp","2026-08-14T05:00:00Z"]));check(created["ok"],"secure create")
+create_dir(root+"/locks/review-locked.lock");check(!dispatch("review",opts(["--state",root,"--input","fixtures/core.json","--actor","reviewer","--id","review-locked","--timestamp","2026-08-14T05:00:01Z"]))["ok"],"lock conflict");os_rmdir(root+"/locks/review-locked.lock")
+delete_file(secret);print(to_string(passed)+" passed; "+to_string(failed)+" failed");if failed>0{exit(1)}

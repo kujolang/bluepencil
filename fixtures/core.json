@@ -1,1 +1,19 @@
-{"schema_version":"1.0.0","title":"BluePencil fixture","provenance":[{"kind":"fixture","source":"fixtures/core.json"}],"classification":"observed","verdict":"unverified","blocking_findings":[],"human_actor":"fixture-human","package_id":"package-fixture","package_version":"1","manifest_checksum":"fixture-checksum","destination":"fixture-local","action":"publish","approval_id":"approval-fixture","authorized_action":"publish"}
+{
+  "schema_version": "1.0.0",
+  "reviewer_id": "fixture-reviewer",
+  "artifact_id": "artifact-fixture",
+  "rubric_version": "publishing-house-quality-rubric-v1",
+  "verdict": "unverified",
+  "dimensions": {
+    "consequence": "UNVERIFIED",
+    "distinctiveness": "UNVERIFIED",
+    "insight": "UNVERIFIED",
+    "defensibility": "UNVERIFIED",
+    "craft": "UNVERIFIED",
+    "brand_integrity": "UNVERIFIED",
+    "format_fidelity": "UNVERIFIED",
+    "strategic_purpose": "UNVERIFIED"
+  },
+  "blocking_findings": [],
+  "provenance": [{"kind": "fixture", "source": "fixtures/core.json"}]
+}

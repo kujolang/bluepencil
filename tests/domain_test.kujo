@@ -1,0 +1,17 @@
+from src.core import dispatch
+from src.args import parse_args
+mut passed:=0;mut failed:=0
+func check(ok,label){if ok{passed=passed+1}else{failed=failed+1;eprint("FAIL: "+label)}}
+func opts(v){return parse_args(v,["json","dry-run","force"])}
+root:="/tmp/bluepencil-domain-"+uuid_v4();base:=parse_json(read_file("fixtures/core.json"))
+base["verdict"]="pass";base["blocking_findings"]=[{"code":"EVIDENCE_MISSING","message":"material claim unsupported"}];blocked:=root+"-blocked.json";write_file(blocked,to_json(base),true)
+check(!dispatch("review",opts(["--state",root,"--input",blocked,"--actor","reviewer"]))["ok"],"blocker cannot be averaged away")
+missing:=parse_json(read_file("fixtures/core.json"));missing["dimensions"]={"craft":"STRONG"};missing_path:=root+"-missing.json";write_file(missing_path,to_json(missing),true)
+check(!dispatch("review",opts(["--state",root,"--input",missing_path,"--actor","reviewer"]))["ok"],"all eight dimensions required")
+first:=dispatch("review",opts(["--state",root,"--input","fixtures/core.json","--actor","reviewer-a","--id","review-a","--timestamp","2026-08-14T05:10:00Z"]));check(first["ok"],"review A")
+second_payload:=parse_json(read_file("fixtures/core.json"));second_payload["verdict"]="revise";second_path:=root+"-second.json";write_file(second_path,to_json(second_payload),true)
+second:=dispatch("review",opts(["--state",root,"--input",second_path,"--actor","reviewer-b","--id","review-b","--timestamp","2026-08-14T05:10:01Z"]));check(second["ok"],"review B")
+comparison:=dispatch("compare",opts(["--state",root,"--id","review-a","--other-id","review-b"]));check(comparison["ok"]&&!comparison["value"]["records_equal"],"review disagreement comparable")
+manifest:=parse_json(read_file("fixtures/calibration/evaluation-manifest.json"));check(manifest["case_count"]==18&&len(manifest["role_coverage"])==23,"calibration corpus complete")
+for path in [blocked,missing_path,second_path]{delete_file(path)}
+print(to_string(passed)+" passed; "+to_string(failed)+" failed");if failed>0{exit(1)}
