@@ -13,3 +13,5 @@ State defaults to `.bluepencil/`. Immutable JSON records and append-only history
 Test with `/Users/robertdevore/2026/Kujolang/kujo-repos/kujo/target/release/kujo run tests/test.kujo`, then run `./bin/bluepencil doctor --json`.
 
 0.1.0 covers the documented local records, fixtures, validation, checksums, deterministic fixed-time IDs, and structured export. It does not manufacture human judgment, consent, rights, approval, or causation. Deterministic checks validate structure and corpus integrity; premium editorial judgment remains human or optional-adapter work.
+
+The vendored calibration corpus contains 18 blind pairs covering all 23 Publishing House roles. Tests verify its manifest count, role coverage, and source checksum; this proves corpus integrity, not semantic reviewer quality.

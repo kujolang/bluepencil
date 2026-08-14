@@ -1,0 +1,7 @@
+{
+  "source_repository": "https://github.com/kujolang/kujo-agents",
+  "source_tag": "v1.1.0 (nearest ancestor)",
+  "source_commit": "936ab4d2e14ea65dfe98922801db0a2c51bc78cf",
+  "schema_version": "publishing-house-evaluation-manifest-v1",
+  "manifest_sha256": "383ab3ff0b880056f15fe9cde23c9ea5657224c89774dc79c06163ca03d8d37a"
+}

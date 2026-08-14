@@ -17,4 +17,8 @@ check(dispatch("doctor",opts(["--state",root]))["value"]["healthy"],"doctor")
 check(dispatch("version",opts([]))["value"]["version"]=="0.1.0","version")
 check(dispatch("export",opts(["--state",root]))["value"]["schema_version"]=="1.0.0","export")
 if id!=""{check(dispatch("show",opts(["--state",root,"--id",id]))["ok"],"show")}
+manifest:=parse_json(read_file("fixtures/calibration/evaluation-manifest.json"))
+check(manifest["case_count"]==18,"18 calibration pairs")
+check(len(manifest["role_coverage"])==23,"all 23 roles covered")
+check(sha256_file("fixtures/calibration/evaluation-manifest.json")=="383ab3ff0b880056f15fe9cde23c9ea5657224c89774dc79c06163ca03d8d37a","vendored manifest checksum")
 print(to_string(pass)+" passed; "+to_string(fail)+" failed");if fail>0{exit(1)}
