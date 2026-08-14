@@ -1,5 +1,5 @@
 export func profile(){return {
-    "slug":"bluepencil","name":"BluePencil","version":"0.1.0","contract_version":"1.0.0","default_state":".bluepencil",
+    "slug":"bluepencil","name":"BluePencil","version":"0.2.0","record_versions":["0.1.0","0.2.0"],"contract_version":"1.0.0","default_state":".bluepencil",
     "description":"Editorial quality and calibration records across eight dimensions, blockers, verdicts, and reviewer disagreement.",
     "commands":["review","compare","calibrate","style","brand","claims","format","accessibility","disagreements","report","validate","doctor","version","init","show","export","history"],
     "read_commands":["compare","disagreements","report","validate","doctor","version","show","export","history"],

@@ -1,10 +1,17 @@
 # Context
 
-- objective: Harden BluePencil into a production-ready, universally useful Kujo-native production Kujo tool without weakening its authority boundaries.
-- git_head: dc4b30a
+- objective: Clean up, verify, and prepare BluePencil for the v0.2.0 release without weakening its authority boundaries.
+- git_head: d89d8e8
 - changed_files:
+  - .loop-engineering/loop.yml
   - CHANGELOG.md
-  - src/common.kujo
+  - README.md
+  - SECURITY.md
+  - VERSION
+  - kujo.toml
+  - schemas/record.schema.json
+  - scripts/validate.sh
   - src/core.kujo
+  - src/profile.kujo
   - src/storage.kujo
-  - tests/security_test.kujo
+  - tests/test.kujo
