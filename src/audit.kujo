@@ -1,4 +1,4 @@
-from src.filesystem import is_link, read_text, write_text, directory_page, digest_file
+from src.filesystem import is_link, read_text, directory_page
 from src.transaction import inspect_transaction
 from src.common import get, safe_id, safe_cursor, parse_object, valid_timestamp
 from src.storage import load_record, list_records, history_dir, validate_state_path
@@ -107,6 +107,6 @@ export func audit_state(state) {
     ok := complete && len(issues) == 0
     mut code := null; mut error := null
     if !ok { code = "audit_failed"; error = "record and event reconciliation failed" }
-    if !complete { code = "audit_incomplete"; error = "audit exceeds the 1000 record/event scan budget" }
+    if !complete { code = "audit_incomplete"; error = "audit exceeds the record-byte or 1000 record/event scan budget" }
     return {"ok": ok, "code": code, "error": error, "value": {"valid": ok, "complete": complete, "verified": verified, "issues": issues, "trust_boundary": "local checksums; no external trust anchor"}}
 }

@@ -1,4 +1,4 @@
-from src.filesystem import read_text, write_text, directory_page, digest_file, rooted_path
+from src.filesystem import read_text, write_text, digest_file, rooted_path
 from src.args import parse_args
 from src.streaming import stream_records
 from src.reporting import report_page, compare_judgments
@@ -128,18 +128,18 @@ func export_result(value, parsed, p, state) {
     output := flag(parsed, "output", "")
     if output == "" { return {"ok": true, "value": value} }
     destination := rooted_path(output); source := rooted_path(state)
-    if destination["root"] == source["root"] {
+    if to_lower(destination["root"]) == to_lower(source["root"]) {
         for managed in ["records","history","transactions","locks"] {
-            if starts_with(destination["relative"],source["relative"] + "/" + managed + "/") { return {"ok":false,"code":"protected_output","error":"export cannot overwrite managed state"} }
+            if starts_with(to_lower(destination["relative"]),to_lower(source["relative"]) + "/" + managed + "/") { return {"ok":false,"code":"protected_output","error":"export cannot overwrite managed state"} }
         }
-        if destination["relative"] == source["relative"] + "/metadata.json" { return {"ok":false,"code":"protected_output","error":"export cannot replace state metadata"} }
+        if to_lower(destination["relative"]) == to_lower(source["relative"]) + "/metadata.json" { return {"ok":false,"code":"protected_output","error":"export cannot replace state metadata"} }
     }
     if file_exists(output) && path_is_symlink(output) { return {"ok": false, "code": "unsafe_output", "error": "output symlinks are not allowed"} }
     if file_exists(output) && flag(parsed, "force", false) != true { return {"ok": false, "code": "output_exists", "error": "output exists; use --force only for intentional safe replacement"} }
     rendered := to_json(envelope(true, value, null, null, p["version"], p["contract_version"])) + "\n"
     if byte_length(rendered) > 8388608 { return {"ok": false, "code": "output_too_large", "error": "output exceeds 8 MiB"} }
     try { write_text(output, rendered, flag(parsed, "force", false) == true) } except error { return {"ok": false, "code": "write_failed", "error": "atomic export write failed"} }
-    return {"ok": true, "value": {"output": output, "bytes": len(rendered), "sha256": sha256(rendered)}}
+    return {"ok": true, "value": {"output": output, "bytes": byte_length(rendered), "sha256": sha256(rendered)}}
 }
 
 func dispatch_inner(command, parsed) {

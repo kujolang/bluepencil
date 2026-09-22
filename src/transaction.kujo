@@ -1,4 +1,4 @@
-from src.filesystem import read_text, write_text, directory_page, digest_file
+from src.filesystem import read_text, write_text
 from src.common import get, safe_id, parse_object
 
 func failure(code, message) { return {"ok": false, "code": code, "error": message} }
