@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [codex/bluepencil-next-session]
-    paths: ['benchmarks/**', '.github/workflows/collections.yml']
+    paths: ['benchmarks/collections.kujo', 'benchmarks/collections.sh', 'benchmarks/summarize_collections.kujo', '.github/workflows/collections.yml']
 concurrency:
   group: collections-${{ github.ref }}
   cancel-in-progress: false
@@ -46,7 +46,7 @@ jobs:
           "$KUJO_BIN" run scripts/runtime_probe.kujo
           mkdir -p .loop-engineering/collection-benchmark
           printf '%s\n' '{"runner":"ubuntu-24.04 GitHub-hosted","architecture":"x86_64","conditions":"One benchmark process at a time in a dedicated job; warm filesystem caches and fresh processes. No other workload is started by this job. Shared CI hardware noise remains possible."}' > .loop-engineering/collection-benchmark/host.json
-          uname -a > .loop-engineering/collection-benchmark/host.txt
+          uname -srmo > .loop-engineering/collection-benchmark/host.txt
           lscpu >> .loop-engineering/collection-benchmark/host.txt
           bash benchmarks/collections.sh
           "$KUJO_BIN" run benchmarks/summarize_collections.kujo -- .loop-engineering/collection-benchmark .loop-engineering/collection-benchmark/summary.json

@@ -5,7 +5,8 @@ on:
   workflow_dispatch:
 concurrency:
   group: validate-${{ github.ref }}
-  cancel-in-progress: true
+  # Preserve an expensive cold runtime build; only the latest pending run waits.
+  cancel-in-progress: false
 permissions:
   contents: read
 env:
@@ -96,6 +97,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "PE dependency inspection failed" }
           $dependencies | Write-Output
           if ($dependencies -match '(?i)VCRUNTIME|MSVCP[0-9]|ucrtbased') { throw "Unexpected redistributable runtime dependency" }
+      - name: macOS distribution uses only system dynamic libraries
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          otool -L .runtime/kujo/target/release/kujo
+          while read -r library; do
+            case "$library" in /usr/lib/*|/System/Library/*) ;; *) echo "Unexpected library: $library" >&2; exit 1 ;; esac
+          done < <(otool -L .runtime/kujo/target/release/kujo | tail -n +2 | awk '{print $1}')
       - name: Package checked candidate and test isolated installation
         shell: bash
         env:
@@ -103,6 +112,10 @@ jobs:
           KUJO_SOURCE_ROOT: ${{ github.workspace }}/.runtime/kujo
           BUNDLE_PLATFORM: ${{ runner.os == 'Windows' && 'windows-x64' || runner.os == 'macOS' && (runner.arch == 'ARM64' && 'macos-arm64' || 'macos-x64') || 'linux-x64' }}
         run: bash scripts/package.sh
+      - name: Install Linux bundle in a clean offline OS container
+        if: runner.os == 'Linux'
+        shell: bash
+        run: bash scripts/verify_linux_bundle.sh "$PWD/dist"
       - name: Upload checksummed candidate bundles
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

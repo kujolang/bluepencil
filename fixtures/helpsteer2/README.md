@@ -16,6 +16,7 @@ annotation collection in partnership with Scale AI.
 - [Collection methodology, section 2](https://arxiv.org/html/2410.01257v2)
 - [CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/)
 - [CC BY 4.0 legal text](https://creativecommons.org/licenses/by/4.0/legalcode.en)
+- [Bundled license text](LICENSE)
 
 `corpus.json` is redistributed under **CC BY 4.0**, not the repository's MIT
 license. Retain this attribution and license link when redistributing it. NVIDIA
