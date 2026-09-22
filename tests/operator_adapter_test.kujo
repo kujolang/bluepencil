@@ -33,6 +33,9 @@ request["phase"] = "approval-publication"
 check(phase_receipt(request)["error_code"] == "unsupported_phase","reject publication phase")
 request = parse_json(original); mut changed_item := request["item"]; changed_item["id"] = "different-item"; request["item"] = changed_item
 check(phase_receipt(request)["error_code"] == "review_identity","reject cross-item evidence")
+request = parse_json(original); request["profile"] = {"id":null,"approval_policy":{},"deployment":{},"verification":{}}
+changed_item = request["item"]; changed_item["publication"] = null; request["item"] = changed_item
+check(phase_receipt(request)["error_code"] == "request_identity","null identities cannot match")
 request = parse_json(original); changed_item = request["item"]; changed_item["publication"] = "other"; request["item"] = changed_item
 check(phase_receipt(request)["error_code"] == "request_identity","reject cross-publication request")
 request = parse_json(original); changed_item = request["item"]; mut changed_reference := changed_item["bluepencil_review"]; changed_reference["sha256"] = sha256("wrong"); changed_item["bluepencil_review"] = changed_reference; request["item"] = changed_item

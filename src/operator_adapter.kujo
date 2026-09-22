@@ -1,5 +1,5 @@
 from src.common import get, has, safe_id, canonical_json
-from src.filesystem import read_text
+from src.filesystem import read_text, rooted_path
 from src.core import validate_record
 from src.profile import profile
 
@@ -15,7 +15,7 @@ export func phase_receipt(request) {
     let item := get(request,"item",null); let publication := get(request,"profile",null)
     if type(item) != "dict" || type(publication) != "dict" { return rejected("invalid_request","item and profile must be objects") }
     let item_id := get(item,"id","")
-    if !safe_id(item_id) || get(item,"publication","") != get(publication,"id",null) || type(get(item,"type",null)) != "string" || get(item,"phase_index",null) != 4 || !has(["in_progress","retry_pending","planned"],get(item,"status","")) {
+    if !safe_id(item_id) || !safe_id(get(publication,"id","")) || get(item,"publication","") != get(publication,"id",null) || type(get(item,"type",null)) != "string" || trim(item["type"]) == "" || type(get(item,"phase_index",null)) != "int" || get(item,"phase_index",null) != 4 || !has(["in_progress","retry_pending","planned"],get(item,"status","")) {
         return rejected("request_identity","item identity, phase, publication or status is invalid")
     }
     for field in ["approval_policy","deployment","verification"] {
@@ -46,9 +46,10 @@ export func phase_receipt(request) {
     if !has(["pass","pass_with_queries"],payload["verdict"]) || len(get(payload,"blocking_findings",[])) > 0 {
         return rejected("editorial_blocked","review does not allow advancement; inspect the retained review evidence")
     }
+    let receipt_path := rooted_path(review_path)
     return {"ok":true,"error":null,"error_code":null,"schema_version":"1.0.0","data":{
         "schema_name":"publishing-house.phase-receipt","schema_version":"1.0.0",
-        "item_id":item_id,"phase":"editorial-review","artifact":path_absolute(review_path),"sha256":review_hash,
+        "item_id":item_id,"phase":"editorial-review","artifact":receipt_path["root"] + receipt_path["relative"],"sha256":review_hash,
         "external_effect":false,"verification":{"authority":"PROPOSE","reviewer_id":payload["reviewer_id"],"source_sha256":source_hash,"request_sha256":sha256(canonical_json(request)),"verdict":payload["verdict"]}
     }}
 }
