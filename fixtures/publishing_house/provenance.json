@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/kujolang/kujo-workflows",
+  "commit": "7a84d19ec960bc2c59155e7c5f1c8634d25d8de7",
+  "path": "publishing-house-operator/schemas/phase-receipt.schema.json",
+  "sha256": "893e274bcfcf545c5e076e4a782399a24f9b7c0c56619c2afcef4cb590bc2e44",
+  "consumer_validation": "publishing-house-operator/operator.py:500-513",
+  "scope": "Offline contract fixture; no live operator invocation or publication approval."
+}

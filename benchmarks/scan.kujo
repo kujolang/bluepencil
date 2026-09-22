@@ -1,0 +1,8 @@
+from src.storage import list_records
+from src.common import get
+values := args()
+started := performance_now()
+page := list_records(values[0],values[1],"",1000)
+elapsed_ms := performance_now() - started
+usage := process_usage()
+print(to_json({"wall_ms":elapsed_ms,"peak_rss_bytes":usage["peak_rss_bytes"],"records":len(page["records"]),"warnings":len(page["warnings"]),"truncated":page["truncated"],"retained_bytes":get(page,"retained_bytes",null)}))

@@ -2,13 +2,21 @@ name: validate
 on:
   push:
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 env:
-  KUJO_COMMIT: 5059695d14d6726bc17fef55e0b95511624967cf
+  KUJO_COMMIT: ca6f9e70af971884af336ae31f2c170320170add
+  CARGO_PROFILE_RELEASE_LTO: "false"
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+  CARGO_PROFILE_RELEASE_OPT_LEVEL: "1"
 jobs:
   kujo-native:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
@@ -19,9 +27,29 @@ jobs:
       - uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921
         with:
           toolchain: stable
+      - name: Configure OpenSSL for Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not $env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT = "C:\vcpkg" }
+          vcpkg install openssl:x64-windows-static-md
+          "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "VCPKG_DEFAULT_TRIPLET=x64-windows-static-md" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "OPENSSL_DIR=$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static-md" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Build pinned Kujo runtime
-        run: cargo build --release --manifest-path .runtime/kujo/Cargo.toml
+        run: cargo build --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml
+      - name: Native filesystem conformance
+        run: cargo test --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml --lib beneath_tests
+      - name: Directory API runtime and capability parity
+        run: cargo test --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml --test directory_page_contract
       - name: Validate
+        shell: bash
         env:
-          KUJO_BIN: ${{ github.workspace }}/.runtime/kujo/target/release/kujo
+          KUJO_BIN: ${{ github.workspace }}/.runtime/kujo/target/release/kujo${{ runner.os == 'Windows' && '.exe' || '' }}
         run: bash scripts/validate.sh
+      - name: Windows native launcher
+        if: runner.os == 'Windows'
+        shell: cmd
+        env:
+          KUJO_BIN: ${{ github.workspace }}\.runtime\kujo\target\release\kujo.exe
+        run: bin\bluepencil.cmd --version --json

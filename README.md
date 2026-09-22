@@ -44,9 +44,12 @@ bluepencil --version --json
 bluepencil doctor --json
 ```
 
-The declared minimum is Kujo 1.0.1; this review was tested with Kujo 1.4.0.
-CI builds the revision pinned in `.github/workflows/validate.yml`. The minimum
-version and other operating systems still need a compatibility matrix.
+This revision requires the source-pinned Kujo runtime in
+[`runtime-requirements.json`](runtime-requirements.json), including the new
+`list_dir_beneath` API. A version label alone is insufficient; released 1.0.1
+is unsupported. Build and compatibility instructions are in
+[Runtime support](docs/RUNTIME_SUPPORT.md). Run `kujo run scripts/runtime_probe.kujo`
+before using an independently supplied runtime.
 No model service is invoked by the baseline CLI.
 
 ## Quick start
@@ -72,6 +75,7 @@ bluepencil report --limit 100 --json
 | `history`, `audit` | Read creation events and reconcile record/event integrity. |
 | `transaction`, `recover` | Inspect an immutable intent and resume exact-byte publication using its owner token. |
 | `validate`, `show`, `export` | Verify and emit portable review evidence. |
+| `export-stream`, `report-stream` | Emit bounded JSONL pages and a final completion receipt. |
 | `calibration-score`, `calibration-trend` | Score supplied blind judgments and ordered run trends. |
 | `bundle-verify`, `bundle-upgrade` | Authenticate a bundle using an explicit trusted key; check version compatibility. |
 | `format-check`, `accessibility-check`, `adapter-check` | Evaluate supplied content rules or validate clearly labeled declarations. |
@@ -88,20 +92,24 @@ Common flags include `--state`, `--config`, `--input`, `--actor`, `--timestamp`,
 artifacts to 64 MiB, and queries to 1,000 records.
 
 State defaults to `.bluepencil/`. Record IDs reject traversal; checks reject
-symlinks at managed paths and input leaves. Secret-shaped input keys, malformed
+symlinks throughout state, input, output, and artifact paths. Secret-shaped input keys, malformed
 JSON, incompatible schema majors, duplicate IDs, and bound artifact checksum
-drift are rejected. These checks are not a sandbox against hostile concurrent
-filesystem changes. Sensitive values under ordinary text keys are not detected.
+drift are rejected. Descriptor-relative I/O rejects symlink traversal, including ancestor replacement
+between checks and use. State still requires trusted ownership and access controls. Sensitive values under ordinary text keys are not detected.
 BluePencil operates under PROPOSE and never approves publication or rewrites
 source artifacts.
 
 Listing and export return `truncated` and `next_cursor`. When truncated, pass
 `--after` with that cursor to continue. Each page reads at most 1,000 candidate
 records, including corrupt and filtered records, so a page may be empty while
-still having a continuation. Directory enumeration/sorting and accumulated
-record bytes are not yet globally bounded. `validate` and `doctor` fail with
+still having a continuation. Native enumeration retains at most 1,001 names and fails above 100,000 directory
+entries; retained record JSON is capped at 2 MiB per page. `validate` and `doctor` fail with
 an incomplete-scan error when more records remain; use `validate --id ID` for
 individual records. `doctor` checks readability, not full domain validity.
+For larger collections, `export-stream` and `report-stream` emit JSONL to stdout.
+Consumers must require the final `ok: true`, `data.complete: true` receipt;
+discard a partial stream on failure. These scans are not snapshots under
+concurrent writes. `--output` is rejected for streams; redirect stdout.
 `--dry-run` validates a proposed record without creating state; it does not
 reserve an ID or guarantee a subsequent write can succeed.
 
@@ -122,9 +130,10 @@ The canonical entrypoint is `bluepencil.kujo`; all runtime logic lives in
 
 - `bluepencil.kujo`: public two-line entrypoint importing `src.core`.
 - `src/`: CLI dispatch, arguments, domain rules, storage, and library helpers.
-- `bin/bluepencil`: portable shell launcher using `KUJO_BIN` or `kujo` on PATH.
+- `bin/bluepencil`, `bin/bluepencil.cmd`: shell and Windows launchers using `KUJO_BIN` or PATH.
 - `tests/`, `fixtures/`, `schemas/`: executable checks and portable examples/contracts.
-- `scripts/`: validation orchestration and Kujo JSON syntax checks.
+- `scripts/`: runtime probing, validation, concurrent writers, and crash orchestration.
+- `benchmarks/`: repeatable first-page latency and peak-RSS measurements.
 - `docs/`: contracts, security boundaries, historical reviews, and future work.
 
 The root entrypoint, manifest, version, license, and project documentation are

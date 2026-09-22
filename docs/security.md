@@ -10,14 +10,20 @@ only the original bytes. It never deletes conflicting data. Legacy locks are
 not cleared by age. An incomplete intent makes `audit` fail until recovered.
 Atomicity and power-loss durability still depend on the filesystem/runtime.
 
-Use trusted, access-controlled state and artifact directories. ID traversal and
-managed-path/input-leaf symlinks are checked, but ancestor links and concurrent
-path replacement are not fully confined. This is not a multi-tenant sandbox.
+Use trusted, access-controlled state and artifact directories. Descriptor-relative reads, writes, and directory pages open each component
+without following links, beneath a trusted volume root. Static checks reject
+linked state, input, output, and artifact components; the native operation
+enforces the boundary against concurrent ancestor replacement. Only known
+macOS root-owned `/tmp`, `/var`, and `/etc` aliases are normalized. UNC paths,
+device paths, traversal, and alternate data streams are rejected. Forced exports
+cannot overwrite managed record/history/transaction/lock files or metadata.
+Regular hard links and filesystem-owner modification remain outside this boundary. This is not a multi-tenant sandbox.
 No user authentication, roles, encryption, or service isolation is provided.
 
 Input secret-shaped keys are rejected recursively. This is a field-name guard,
 not a content DLP scanner. Review text and artifacts may contain sensitive data.
-HMAC helpers use a shared key; they do not establish a public-key trust chain.
+HMAC verification uses the native constant-time verifier and a bounded explicit
+trusted-key file. HMAC helpers use a shared key; they do not establish a public-key trust chain.
 
 `validate` checks domain records and attached artifact hashes. `audit` separately
 reconciles record bytes against creation-event checksums and checks pending

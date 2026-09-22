@@ -1,0 +1,47 @@
+from tests.support import cleanup
+// Args: runtime, baseline checkout, output JSON. The baseline must be disposable.
+values := args()
+if len(values) != 3 { eprint("usage: benchmarks/run.kujo RUNTIME BASELINE_CHECKOUT OUTPUT_JSON"); exit(2) }
+runtime := values[0]; baseline := values[1]; output := values[2]
+root := create_temp_dir(".",".bluepencil-benchmark-")
+root = path_absolute(root)
+create_dir(baseline + "/.loop-engineering")
+write_file(baseline + "/.loop-engineering/bluepencil-benchmark.kujo",read_file("benchmarks/scan.kujo"),true)
+mut measurements := []
+for scenario in ["normal","sparse-filter","corrupt","maximum-size"] {
+    state := root + "/" + scenario
+    create_dir(state); create_dir(state + "/records")
+    mut count := 1001; mut padding := ""
+    if scenario == "maximum-size" {
+        count = 24; padding = "x"
+        while byte_length(padding) < 1040000 { padding = padding + padding }
+        padding = substring(padding,0,1040000)
+    }
+    mut index := 0
+    while index < count {
+        id := "review-" + to_string(10000 + index)
+        mut kind := "review"
+        if scenario == "sparse-filter" && index < 1000 { kind = "review_finding" }
+        record := {"schema_version":"1.0.0","tool_version":"0.2.0","contract_version":"1.0.0","id":id,"record_type":kind,"command":"review","actor":"fixture","created_at":"2026-09-22T00:00:00Z","provenance":[],"payload":{"verdict":"unverified","padding":padding}}
+        mut content := to_json(record)
+        if scenario == "corrupt" { content = "{" }
+        write_file(state + "/records/" + id + ".json",content,true)
+        index = index + 1
+    }
+    for implementation in ["baseline","enhanced"] {
+        mut checkout := os_getcwd(); mut script := "benchmarks/scan.kujo"
+        if implementation == "baseline" { checkout = baseline; script = ".loop-engineering/bluepencil-benchmark.kujo" }
+        mut samples := []
+        mut sample := 0
+        while sample < 3 {
+            result := spawn_process([runtime,"run",script,"--",state,"review"],{"cwd":checkout,"timeout_ms":300000,"max_output_bytes":8192})
+            if result.exitcode != 0 { eprint(result.stderr); cleanup(root); exit(1) }
+            samples = push(samples,parse_json(result.stdout)); sample = sample + 1
+        }
+        measurements = push(measurements,{"scenario":scenario,"implementation":implementation,"fixture_records":count,"samples":samples})
+    }
+    cleanup(state)
+}
+write_file(output,to_json_pretty({"schema_version":"1.0.0","recorded_at":now_utc(),"baseline_commit":"275fbbf","runtime":runtime,"measurements":measurements}),true)
+cleanup(root)
+print("Benchmark receipts written to " + output)

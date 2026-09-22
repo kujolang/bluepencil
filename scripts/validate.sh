@@ -5,6 +5,7 @@ KUJO_RUNTIME="${KUJO_BIN:-$ROOT/../kujo/target/release/kujo}"
 if [[ ! -x "$KUJO_RUNTIME" ]] && command -v kujo >/dev/null 2>&1; then KUJO_RUNTIME="$(command -v kujo)"; fi
 if [[ ! -x "$KUJO_RUNTIME" ]]; then printf 'BluePencil: Kujo runtime not found; set KUJO_BIN.\n' >&2; exit 2; fi
 cd "$ROOT"
+"$KUJO_RUNTIME" run scripts/runtime_probe.kujo
 "$KUJO_RUNTIME" check bluepencil.kujo
 "$KUJO_RUNTIME" run tests/test.kujo
 "$KUJO_RUNTIME" run tests/security_test.kujo
@@ -12,7 +13,11 @@ cd "$ROOT"
 "$KUJO_RUNTIME" run tests/transaction_test.kujo
 "$KUJO_RUNTIME" run tests/contracts_test.kujo
 "$KUJO_RUNTIME" run tests/workflows_test.kujo
+"$KUJO_RUNTIME" run tests/consumer_test.kujo
 "$KUJO_RUNTIME" run tests/walkthrough_test.kujo
+"$KUJO_RUNTIME" run tests/filesystem_test.kujo
+"$KUJO_RUNTIME" run tests/streaming_test.kujo -- "$KUJO_RUNTIME"
+KUJO_BIN="$KUJO_RUNTIME" bash scripts/concurrency.sh
 "$KUJO_RUNTIME" run tests/storage_test.kujo
 "$KUJO_RUNTIME" run tests/domain_test.kujo
 "$KUJO_RUNTIME" run tests/hardening_test.kujo

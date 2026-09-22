@@ -1,0 +1,8 @@
+from src.transaction import inspect_transaction, recover_transaction
+from src.audit import audit_state
+state := args()[0]
+transaction := inspect_transaction(state,"review-crash")
+if !transaction["ok"] { eprint(to_json(transaction)); exit(1) }
+result := recover_transaction(state,"review-crash",transaction["value"]["owner"])
+if !result["ok"] || !audit_state(state)["ok"] { eprint("crash recovery did not reconcile"); exit(1) }
+print("2 passed; 0 failed")

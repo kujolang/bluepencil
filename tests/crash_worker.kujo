@@ -1,0 +1,13 @@
+from src.storage import initialize
+from src.transaction import prepare_transaction, read_transaction
+from src.filesystem import write_text
+values := args(); state := values[0]; stage := values[1]
+initialize(state,{"tool":"bluepencil","contract_version":"1.0.0"})
+record := {"schema_version":"1.0.0","tool_version":"0.2.0","contract_version":"1.0.0","id":"review-crash","command":"review","record_type":"review","actor":"fixture","created_at":"2026-09-22T00:00:00Z","provenance":[],"payload":parse_json(read_file("fixtures/core.json"))}
+prepared := prepare_transaction(state,record)
+if !prepared["ok"] { eprint(to_json(prepared)); exit(1) }
+journal := read_transaction(state,"review-crash")["value"]
+if stage != "intent" { write_text(state + "/records/review-crash.json",journal["record_text"],false) }
+if stage == "event" { write_text(state + "/history/" + journal["event_id"] + ".json",journal["event_text"],false) }
+write_file(values[2],"ready",true)
+sleep(60000)

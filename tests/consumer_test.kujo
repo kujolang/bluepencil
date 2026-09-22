@@ -1,0 +1,22 @@
+from src.core import dispatch
+from src.args import parse_args
+from src.filesystem import read_text, digest_file
+from tests.support import cleanup, temp_path
+mut passed := 0; mut failed := 0
+func check(ok,label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
+root := temp_path("bluepencil-consumer-")
+source := "fixtures/publishing_house/"
+provenance := parse_json(read_text(source + "provenance.json",8192))
+schema_text := read_text(source + "phase-receipt.schema.json",8192)
+check(sha256(schema_text) == provenance["sha256"],"consumer schema provenance")
+review := dispatch("review",parse_args(["--state",root,"--input","examples/editorial_walkthrough/blocked.json","--id","review-consumer","--actor","fixture-reviewer"],[]))
+check(review["ok"],"editorial review produces consumer artifact")
+artifact := root + "/records/review-consumer.json"
+receipt := {"schema_name":"publishing-house.phase-receipt","schema_version":"1.0.0","item_id":"fixture-item","phase":"editorial-review","artifact":artifact,"sha256":digest_file(artifact,1048576)["sha256"],"external_effect":false}
+check(json_schema_validate(receipt,parse_json(schema_text))["valid"],"Publishing House receipt schema")
+// Mirror the pinned consumer boundary, without invoking a worker or credentials.
+check(receipt["item_id"] == "fixture-item" && receipt["phase"] == "editorial-review" && receipt["sha256"] == sha256(read_text(receipt["artifact"],1048576)),"consumer request identity and exact artifact checksum")
+record := parse_json(read_text(artifact,1048576))
+check(!receipt["external_effect"] && record["payload"]["verdict"] == "blocked" && len(record["payload"]["blocking_findings"]) > 0,"blocked judgment retained without publication authority")
+cleanup(root)
+print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

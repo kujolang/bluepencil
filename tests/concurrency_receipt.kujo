@@ -1,0 +1,15 @@
+from src.core import dispatch
+from src.args import parse_args
+mut failed := 0
+func check(ok,message) { if !ok { failed = failed + 1; eprint(message) } }
+root := args()[0]; mut successes := 0
+for index in [1,2,3,4] {
+    result := parse_json(read_file(root + "/writer-" + to_string(index) + ".json"))
+    if result["ok"] { successes = successes + 1 }
+}
+check(successes == 1,"competing writers must have exactly one winner")
+state := root + "/state"
+audit := dispatch("audit",parse_args(["--state",state],[]))
+check(audit["ok"] && audit["value"]["verified"] == 1,"concurrent first initialization and publication must reconcile")
+print(to_string(2 - failed) + " passed; " + to_string(failed) + " failed")
+if failed > 0 { exit(1) }
