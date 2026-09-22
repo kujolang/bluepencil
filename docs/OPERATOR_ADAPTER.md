@@ -40,3 +40,21 @@ explicit router for other phases. It does not turn editorial pass into approval.
 
 Contracts are vendored in `fixtures/publishing_house`; tests use a disposable
 local operator state with no publication adapter or live credentials.
+
+Run the actual external operator sandbox (seven assertions):
+
+```bash
+KUJO_BIN=/absolute/pinned/kujo \
+OPERATOR_ROOT=/absolute/kujo-workflows/publishing-house-operator \
+REPOS_ROOT=/absolute/kujo-repos \
+bash scripts/verify_operator_sandbox.sh
+```
+
+This separate integration needs the external consumer and its existing runtime;
+neither is a dependency of BluePencil. The harness launches the real operator
+entrypoint with Python's `-I` isolation because its current `operator.py` filename
+otherwise shadows the standard-library `operator` module on the tested host.
+The operator's normal shell launcher still needs that upstream correction.
+The sandbox clears inherited environment variables, uses disposable state and
+profiles, and verifies accepted evidence, rejected checksum drift, and deadline
+failure without advancing to publication.

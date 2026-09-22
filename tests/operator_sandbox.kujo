@@ -7,13 +7,14 @@ from tests.support import temp_path, cleanup
 
 // Explicit external-consumer integration; no network/provider/publication paths.
 let parameters := args()
-if len(parameters) != 3 { eprint("usage: operator_sandbox.kujo RUNTIME OPERATOR_CLI REPOS_ROOT"); exit(2) }
+if len(parameters) != 3 && len(parameters) != 5 { eprint("usage: operator_sandbox.kujo RUNTIME OPERATOR_CLI REPOS_ROOT [CONSUMER_RUNTIME CONSUMER_ROOT]"); exit(2) }
 let test_root := temp_path("bluepencil-operator-sandbox-")
 create_dir(test_root)
 let runtime := parameters[0]; let operator_cli := parameters[1]; let repos := parameters[2]
 let house_state := test_root + "/house"; let review_state := test_root + "/review-state"
 let adapter := os_getcwd() + "/bin/bluepencil-phase-adapter"
 mut process_env := {"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","KUJO_BIN":runtime,"PUBLISHING_HOUSE_PHASE_ADAPTER":adapter,"PUBLISHING_HOUSE_PHASE_TIMEOUT_SECONDS":"30"}
+if len(parameters) == 5 { process_env["CONSUMER_PYTHON"] = parameters[3]; process_env["OPERATOR_ROOT"] = parameters[4] }
 mut passed := 0; mut failed := 0
 func require(ok,label) { if ok { passed += 1 } else { failed += 1; eprint("FAIL: " + label); exit(1) } }
 func operator_call(arguments, environment) {

@@ -11,14 +11,14 @@ write_file(artifact_file,"abc",false)
 let small := dispatch("review",parse_args(["--state",artifact_root + "/state","--input","fixtures/core.json","--actor","fixture-reviewer","--id","review-small-artifact","--path",artifact_file],[]))
 check(small["ok"],"small artifacts accept the advertised maximum")
 check(digest_file(artifact_file,67108864)["sha256"] == sha256("abc"),"streaming hash matches known bytes")
-mut chunk := "a"
-while byte_length(chunk) < 1048576 { chunk = chunk + chunk }
+mut artifact_chunk := "a"
+while byte_length(artifact_chunk) < 1048576 { artifact_chunk = artifact_chunk + artifact_chunk }
 write_file(artifact_file,"",true)
 mut chunks := 0
-while chunks < 9 { append_file(artifact_file,chunk); chunks += 1 }
+while chunks < 9 { append_file(artifact_file,artifact_chunk); chunks += 1 }
 let large := dispatch("review",parse_args(["--state",artifact_root + "/large-state","--input","fixtures/core.json","--actor","fixture-reviewer","--id","review-large-artifact","--path",artifact_file],[]))
 check(large["ok"] && large["value"]["record"]["artifact"]["bytes"] == 9437184,"artifact larger than whole-file reader cap is bound")
-while chunks < 64 { append_file(artifact_file,chunk); chunks += 1 }
+while chunks < 64 { append_file(artifact_file,artifact_chunk); chunks += 1 }
 check(digest_file(artifact_file,67108864)["bytes"] == 67108864,"exact 64 MiB digest succeeds")
 append_file(artifact_file,"x")
 mut overflow_rejected := false
