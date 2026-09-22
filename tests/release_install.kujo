@@ -9,7 +9,9 @@ let host := os_environ()
 mut clean_env := {"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","HOME":scratch,"TMPDIR":scratch,"LANG":"C.UTF-8"}
 mut launcher := installation + "/bin/bluepencil"
 if is_windows {
-    let system := host["SystemRoot"]
+    mut system := ""
+    for environment_key in keys(host) { if to_lower(environment_key) == "systemroot" { system = host[environment_key] } }
+    if system == "" { throw("Windows SystemRoot is required for the clean launcher test") }
     clean_env = {"PATH":system + "\\System32;" + system,"SystemRoot":system,"WINDIR":system,"COMSPEC":system + "\\System32\\cmd.exe","PATHEXT":".COM;.EXE;.BAT;.CMD","TEMP":scratch,"TMP":scratch,"USERPROFILE":scratch}
     launcher = installation + "/bin/bluepencil.cmd"
 }
