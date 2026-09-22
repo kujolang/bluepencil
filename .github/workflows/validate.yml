@@ -81,7 +81,7 @@ jobs:
         env:
           KUJO_BIN: ${{ github.workspace }}/.runtime/kujo/target/release/kujo${{ runner.os == 'Windows' && '.exe' || '' }}
           KUJO_SOURCE_ROOT: ${{ github.workspace }}/.runtime/kujo
-          BUNDLE_PLATFORM: ${{ runner.os == 'Windows' && 'windows-x64' || runner.os == 'macOS' && 'macos-arm64' || 'linux-x64' }}
+          BUNDLE_PLATFORM: ${{ runner.os == 'Windows' && 'windows-x64' || runner.os == 'macOS' && (runner.arch == 'ARM64' && 'macos-arm64' || 'macos-x64') || 'linux-x64' }}
         run: bash scripts/package.sh
       - name: Upload checksummed candidate bundles
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
