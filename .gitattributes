@@ -1,0 +1,3 @@
+# Keep checksum-bound fixtures and scripts identical on every checkout.
+* text=auto eol=lf
+*.cmd text eol=crlf

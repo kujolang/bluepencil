@@ -27,6 +27,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921
         with:
           toolchain: stable
+      # Exact-pin caches are saved only after both native conformance gates pass.
+      # Application validation and the behavioral runtime probe always run.
       - name: Restore pinned runtime build
         id: runtime-cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
@@ -34,7 +36,7 @@ jobs:
           path: .runtime/kujo/target
           key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ env.KUJO_COMMIT }}-opt1-v1
       - name: Configure OpenSSL for Windows
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.runtime-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           if (-not $env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT = "C:\vcpkg" }
@@ -43,10 +45,13 @@ jobs:
           "VCPKG_DEFAULT_TRIPLET=x64-windows-static-md" | Out-File -FilePath $env:GITHUB_ENV -Append
           "OPENSSL_DIR=$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static-md" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Build pinned Kujo runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: cargo build --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml
       - name: Native filesystem conformance
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: cargo test --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml --lib beneath_tests
       - name: Directory API runtime and capability parity
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: cargo test --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml --test directory_page_contract
       - name: Save verified runtime build
         if: steps.runtime-cache.outputs.cache-hit != 'true'
