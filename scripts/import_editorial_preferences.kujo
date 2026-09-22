@@ -1,0 +1,29 @@
+from src.filesystem import read_text, write_text
+// Input is a checksum-verified, pinned HelpSteer2-Preference JSONL split into
+// 25-line chunks by gzip/split. Selection never examines preference values.
+let parameters := args()
+if len(parameters) != 2 { eprint("usage: import_editorial_preferences.kujo CHUNK_DIRECTORY OUTPUT"); exit(2) }
+mut selected := []; mut source_row := 0
+for filename in sort(list_dir(parameters[0])) {
+    for line in split(read_text(parameters[0] + "/" + filename,8388608),"\n") {
+        if trim(line) != "" {
+            source_row += 1
+            // Pinned JSONL has split first. Skip train bytes before costly parsing.
+            if starts_with(line,"{\"split\": \"val\",") {
+            let row := parse_json(line)
+            let matches_task := regex_match(to_lower(row["prompt"]),"\\b(write|rewrite|summarize|summary|edit|proofread)\\b")
+            let bounded := byte_length(row["prompt"]) + byte_length(row["response_1"]) + byte_length(row["response_2"]) <= 12000
+            if row["split"] == "val" && matches_task && bounded && len(row["all_preferences_unprocessed"]) >= 3 && len(selected) < 18 {
+                let frozen_case := {"prompt":row["prompt"],"A":row["response_1"],"B":row["response_2"]}
+                selected = push(selected,{"case_id":"helpsteer2-row-" + to_string(source_row),"source_row_1based":source_row,"source_line_sha256":sha256(line),"case_sha256":sha256(to_json(frozen_case)),"case":frozen_case,"all_preferences_unprocessed":row["all_preferences_unprocessed"]})
+            }
+            } else if !starts_with(line,"{\"split\": \"train\",") { throw("unexpected pinned JSONL layout") }
+            if len(selected) == 18 { break }
+        }
+    }
+    if len(selected) == 18 { break }
+}
+if len(selected) != 18 { eprint("expected 18 eligible validation cases, got " + to_string(len(selected))); exit(1) }
+let corpus := {"schema_name":"bluepencil.external-preferences","schema_version":"1.0.0","dataset":"NVIDIA HelpSteer2-Preference","revision":"990b2711a36180dd19d9c94b8627844866f8982a","source_gzip_sha256":"a5cd48600fb7a330cf0ccc8f59051e24e8f236907c379f42eff1ba18da55204b","license":"CC-BY-4.0","cases":selected}
+write_text(parameters[1],to_json(corpus) + "\n",false)
+print(to_json({"cases":len(selected),"source_rows_scanned":source_row,"output":parameters[1]}))

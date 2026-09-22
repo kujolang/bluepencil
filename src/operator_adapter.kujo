@@ -1,0 +1,55 @@
+from src.common import get, has, safe_id, canonical_json
+from src.filesystem import read_text, rooted_path
+from src.core import validate_record
+from src.profile import profile
+
+func rejected(code, message) { return {"ok":false,"data":null,"error_code":code,"error":message,"schema_version":"1.0.0"} }
+
+// Read-only adapter: it accepts existing reviewer evidence, never invents a
+// judgment, writes a record, or exercises publication authority.
+export func phase_receipt(request) {
+    if type(request) != "dict" || get(request,"schema_name","") != "publishing-house.phase-request" || get(request,"schema_version","") != "1.0.0" {
+        return rejected("invalid_request","unsupported phase request contract")
+    }
+    if get(request,"phase","") != "editorial-review" { return rejected("unsupported_phase","BluePencil only handles editorial-review") }
+    let item := get(request,"item",null); let publication := get(request,"profile",null)
+    if type(item) != "dict" || type(publication) != "dict" { return rejected("invalid_request","item and profile must be objects") }
+    let item_id := get(item,"id","")
+    if !safe_id(item_id) || !safe_id(get(publication,"id","")) || get(item,"publication","") != get(publication,"id",null) || type(get(item,"type",null)) != "string" || trim(item["type"]) == "" || type(get(item,"phase_index",null)) != "int" || get(item,"phase_index",null) != 4 || !has(["in_progress","retry_pending","planned"],get(item,"status","")) {
+        return rejected("request_identity","item identity, phase, publication or status is invalid")
+    }
+    for field in ["approval_policy","deployment","verification"] {
+        if type(get(publication,field,null)) != "dict" { return rejected("invalid_request","profile contract is incomplete") }
+    }
+    for field in ["state_root","repos_root"] {
+        if type(get(request,field,null)) != "string" || trim(request[field]) == "" { return rejected("invalid_request","request roots are missing") }
+    }
+    let reference := get(item,"bluepencil_review",null)
+    if type(reference) != "dict" { return rejected("review_required","item.bluepencil_review must identify existing reviewer evidence") }
+    let review_path := get(reference,"path",null); let review_hash := get(reference,"sha256",null)
+    if type(review_path) != "string" || trim(review_path) == "" || type(review_hash) != "string" || !regex_match(review_hash,"^[a-f0-9]{64}$") { return rejected("review_required","review reference requires a path and SHA-256") }
+    mut review_bytes := ""
+    try { review_bytes = read_text(review_path,1048576) }
+    except error { return rejected("unsafe_review","review cannot be read within the filesystem boundary") }
+    if sha256(review_bytes) != review_hash { return rejected("review_checksum_mismatch","review bytes do not match the requested checksum") }
+    mut review_record := null
+    try { review_record = parse_json(review_bytes) }
+    except error { return rejected("invalid_review","review must contain valid JSON") }
+    let checked := validate_record(review_record,profile())
+    if !checked["ok"] { return rejected(checked["code"],checked["error"]) }
+    let payload := review_record["payload"]
+    if review_record["command"] != "review" || get(payload,"artifact_id","") != item_id || get(payload,"reviewer_id","") != review_record["actor"] || type(get(review_record,"artifact",null)) != "dict" {
+        return rejected("review_identity","review must bind this item, reviewer identity, and exact source artifact")
+    }
+    let source_hash := get(reference,"source_sha256","")
+    if source_hash != review_record["artifact"]["sha256"] { return rejected("source_checksum_mismatch","requested source checksum differs from the reviewed artifact") }
+    if !has(["pass","pass_with_queries"],payload["verdict"]) || len(get(payload,"blocking_findings",[])) > 0 {
+        return rejected("editorial_blocked","review does not allow advancement; inspect the retained review evidence")
+    }
+    let receipt_path := rooted_path(review_path)
+    return {"ok":true,"error":null,"error_code":null,"schema_version":"1.0.0","data":{
+        "schema_name":"publishing-house.phase-receipt","schema_version":"1.0.0",
+        "item_id":item_id,"phase":"editorial-review","artifact":receipt_path["root"] + receipt_path["relative"],"sha256":review_hash,
+        "external_effect":false,"verification":{"authority":"PROPOSE","reviewer_id":payload["reviewer_id"],"source_sha256":source_hash,"request_sha256":sha256(canonical_json(request)),"verdict":payload["verdict"]}
+    }}
+}

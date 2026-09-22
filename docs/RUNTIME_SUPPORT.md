@@ -1,6 +1,6 @@
 # Runtime and platform contract
 
-This revision requires Kujo commit `ee6ce1dabd6629be33b3241b0ab9b5a970256c56`
+This revision requires Kujo commit `262b3e7517ac47edca843120dd8689c0c820d62e`
 from `kujolang/kujo` (version label 1.4.0), recorded in
 [`runtime-requirements.json`](../runtime-requirements.json). This is a source
 pin, not a claim that every released 1.4.0 binary has these APIs.
@@ -8,7 +8,7 @@ pin, not a claim that every released 1.4.0 binary has these APIs.
 ```bash
 git clone https://github.com/kujolang/kujo.git kujo-runtime
 cd kujo-runtime
-git checkout ee6ce1dabd6629be33b3241b0ab9b5a970256c56
+git checkout 262b3e7517ac47edca843120dd8689c0c820d62e
 cargo build --release --no-default-features --locked
 # Set KUJO_BIN to this checkout's absolute target/release/kujo path.
 # On Windows, the executable is target/release/kujo.exe.
@@ -38,12 +38,15 @@ application fixtures; this does not establish coverage for every reparse type.
 vendored Publishing House schema and mirrors its request identity, artifact
 checksum, and no-publication-effect boundary. The schema's repository, exact
 revision, and checksum are in `fixtures/publishing_house/provenance.json`.
-This is an offline contract integration, not a live operator run.
+The new `tests/operator_sandbox.kujo` additionally exercises the actual operator
+in disposable offline state; current candidate results are tracked in the
+[next-session execution ledger](NEXT_SESSION_EXECUTION_2026-09-22.md).
 
 
-## Verification evidence
+## Historical verification evidence (previous source pin)
 
-The application suite passes 201 assertions on Linux, macOS, and Windows,
+The prior `ee6ce1dabd6629be33b3241b0ab9b5a970256c56` runtime and
+BluePencil `300607e` application suite passed 201 assertions on Linux, macOS, and Windows,
 including native Windows launcher smoke, concurrent first initialization,
 process-kill recovery, JSONL completion receipts, and the pinned consumer fixture.
 The native runtime passes 14 filesystem tests on Linux/macOS and nine on Windows,
@@ -62,3 +65,8 @@ The prior installed/sibling runtime labeled 1.4.0 lacks `list_dir_beneath` and
 fails the doctor test; use the pinned build rather than relying on its label.
 No full Kujo repository test-suite or power-loss guarantee is implied by these
 scoped runtime checks.
+
+The next-session branch also requires bounded `read_stdin`, streaming
+`digest_file_beneath`, and interpreter lexical-call isolation. The new pin is a
+candidate undergoing validation, not a released runtime. Artifact binding now
+uses a 64 KiB streaming digest buffer and supports the documented 64 MiB bound.

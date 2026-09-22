@@ -1,0 +1,8 @@
+from src.operator_adapter import phase_receipt
+export func main() {
+    mut response := null
+    try { response = phase_receipt(parse_json(read_stdin(1048576))) }
+    except error { response = {"ok":false,"data":null,"error_code":"invalid_request","error":"request could not be safely read or validated","schema_version":"1.0.0"} }
+    print(to_json(response))
+    if !response["ok"] { exit(1) }
+}

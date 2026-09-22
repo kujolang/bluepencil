@@ -1,0 +1,57 @@
+from src.checkpoints import create_checkpoint, verify_checkpoint
+from src.core import dispatch
+from src.args import parse_args
+from src.audit import audit_state, event_name
+from tests.support import cleanup, temp_path
+from src.filesystem import read_text, write_text
+mut passed := 0; mut failed := 0
+func check(ok,label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
+func opts(args) { return parse_args(args,[]) }
+root := temp_path("bluepencil-checkpoint-"); custody := temp_path("bluepencil-custody-")
+create_dir(custody)
+created := dispatch("review",opts(["--state",root,"--input","fixtures/core.json","--id","review-anchored","--actor","fixture","--timestamp","2026-09-22T12:00:00Z"]))
+check(created["ok"],"review fixture created")
+path := custody + "/checkpoint.json"
+check(!create_checkpoint(root,root + "/checkpoint.json","custodian")["ok"],"checkpoint rejected inside state")
+check(!create_checkpoint(root,path,"")["ok"],"custodian identity required")
+checkpoint := dispatch("checkpoint-create",opts(["--state",root,"--output",path,"--custodian","offline-custodian"]))
+check(checkpoint["ok"] && !checkpoint["value"]["receipt"]["custody_verified"],"external receipt published without asserting custody proof")
+original := read_text(path,16384)
+check(!create_checkpoint(root,path,"custodian")["ok"] && read_text(path,16384) == original,"existing checkpoint never replaced")
+verification := dispatch("checkpoint-verify",opts(["--state",root,"--checkpoint",path]))
+if !verification["ok"] { eprint(to_json(verification)); eprint(original) }
+check(verification["ok"],"CLI verification")
+// A coordinated rewrite keeps all local checksums self-consistent.
+record_path := root + "/records/review-anchored.json"
+record := parse_json(read_text(record_path,1048576)); record["payload"]["verdict"] = "revise"
+record_text := to_json_pretty(record) + "\n"
+history_path := root + "/history/" + event_name(record) + ".json"
+event := parse_json(read_text(history_path,65536)); event["record_sha256"] = sha256(record_text)
+event_text := to_json_pretty(event) + "\n"
+journal_path := root + "/transactions/review-anchored.json"
+journal := parse_json(read_text(journal_path,3145728))
+journal["record_text"] = record_text; journal["record_sha256"] = sha256(record_text)
+journal["event_text"] = event_text; journal["event_sha256"] = sha256(event_text)
+write_text(record_path,record_text,true); write_text(history_path,event_text,true); write_text(journal_path,to_json(journal),true)
+check(audit_state(root)["ok"],"coordinated rewrite remains locally self-consistent")
+verified := verify_checkpoint(root,path)
+check(!verified["ok"] && verified["code"] == "checkpoint_mismatch","independent checkpoint detects coordinated rewrite")
+second := custody + "/second.json"; create_checkpoint(root,second,"custodian")
+restore := temp_path("bluepencil-restored-"); create_dir(restore)
+for directory in ["records","history","transactions","locks"] {
+    create_dir(restore + "/" + directory)
+    for name in list_dir(root + "/" + directory) { write_text(restore + "/" + directory + "/" + name,read_text(root + "/" + directory + "/" + name,3145728),false) }
+}
+write_text(restore + "/metadata.json",read_text(root + "/metadata.json",65536),false)
+check(verify_checkpoint(restore,second)["ok"],"restored state verifies at a different physical path")
+write_text(restore + "/records/review-added.json","{}",false)
+check(!verify_checkpoint(restore,second)["ok"],"added managed file detected")
+delete_file(restore + "/records/review-added.json"); delete_file(restore + "/records/review-anchored.json")
+check(!verify_checkpoint(restore,second)["ok"],"deleted managed file detected")
+receipt := parse_json(original); receipt["custody_verified"] = true
+write_text(custody + "/invalid.json",to_json(receipt),false)
+check(!verify_checkpoint(root,custody + "/invalid.json")["ok"],"receipt cannot assert unobserved custody")
+write_text(root + "/records/review-anchored.json","{",true)
+check(!create_checkpoint(root,custody + "/corrupt.json","custodian")["ok"] && !file_exists(custody + "/corrupt.json"),"corrupt state cannot produce a checkpoint")
+cleanup(root); cleanup(custody); cleanup(restore)
+print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

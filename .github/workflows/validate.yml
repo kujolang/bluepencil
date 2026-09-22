@@ -3,16 +3,24 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: validate-${{ github.ref }}
+  # Preserve an expensive cold runtime build; only the latest pending run waits.
+  cancel-in-progress: false
 permissions:
   contents: read
 env:
-  KUJO_COMMIT: ee6ce1dabd6629be33b3241b0ab9b5a970256c56
+  KUJO_COMMIT: 262b3e7517ac47edca843120dd8689c0c820d62e
   CARGO_PROFILE_RELEASE_LTO: "false"
   CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
   CARGO_PROFILE_RELEASE_OPT_LEVEL: "1"
 jobs:
   kujo-native:
+    # Same-repository branches already run on push; forks still need PR checks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ${{ matrix.os }}
+    env:
+      RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C target-feature=+crt-static' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -34,16 +42,17 @@ jobs:
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: .runtime/kujo/target
-          key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ env.KUJO_COMMIT }}-opt1-v1
+          key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ env.KUJO_COMMIT }}-opt1-v1${{ runner.os == 'Windows' && '-crt-static-target' || '' }}
       - name: Configure OpenSSL for Windows
         if: runner.os == 'Windows' && steps.runtime-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           if (-not $env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT = "C:\vcpkg" }
-          vcpkg install openssl:x64-windows-static-md
+          "CARGO_BUILD_TARGET=x86_64-pc-windows-msvc" | Out-File -FilePath $env:GITHUB_ENV -Append
+          vcpkg install openssl:x64-windows-static
           "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "VCPKG_DEFAULT_TRIPLET=x64-windows-static-md" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "OPENSSL_DIR=$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static-md" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "VCPKG_DEFAULT_TRIPLET=x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "OPENSSL_DIR=$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Build pinned Kujo runtime
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: cargo build --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml
@@ -53,20 +62,63 @@ jobs:
       - name: Directory API runtime and capability parity
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: cargo test --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml --test directory_page_contract
+      - name: Adapter I/O runtime parity
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: cargo test --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml --test bounded_stdin --test rooted_digest
+      - name: Lexical scope regression
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: cargo test --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml --test vm_interpreter_parity_surfaces top_level_functions
       - name: Save verified runtime build
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: .runtime/kujo/target
-          key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ env.KUJO_COMMIT }}-opt1-v1
+          key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ env.KUJO_COMMIT }}-opt1-v1${{ runner.os == 'Windows' && '-crt-static-target' || '' }}
       - name: Validate
         shell: bash
         env:
-          KUJO_BIN: ${{ github.workspace }}/.runtime/kujo/target/release/kujo${{ runner.os == 'Windows' && '.exe' || '' }}
+          KUJO_BIN: ${{ github.workspace }}/.runtime/kujo/target/${{ runner.os == 'Windows' && 'x86_64-pc-windows-msvc/' || '' }}release/kujo${{ runner.os == 'Windows' && '.exe' || '' }}
         run: bash scripts/validate.sh
       - name: Windows native launcher
         if: runner.os == 'Windows'
         shell: cmd
         env:
-          KUJO_BIN: ${{ github.workspace }}\.runtime\kujo\target\release\kujo.exe
+          KUJO_BIN: ${{ github.workspace }}\.runtime\kujo\target\x86_64-pc-windows-msvc\release\kujo.exe
         run: bin\bluepencil.cmd --version --json
+      - name: Windows distribution has no Visual C++ redistributable dependency
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $inspector = Get-ChildItem "$installation\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $inspector) { throw "PE dependency inspector unavailable" }
+          $dependencies = & $inspector.FullName /dependents .runtime/kujo/target/x86_64-pc-windows-msvc/release/kujo.exe
+          if ($LASTEXITCODE -ne 0) { throw "PE dependency inspection failed" }
+          $dependencies | Write-Output
+          if ($dependencies -match '(?i)VCRUNTIME|MSVCP[0-9]|ucrtbased') { throw "Unexpected redistributable runtime dependency" }
+      - name: macOS distribution uses only system dynamic libraries
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          otool -L .runtime/kujo/target/release/kujo
+          while read -r library; do
+            case "$library" in /usr/lib/*|/System/Library/*) ;; *) echo "Unexpected library: $library" >&2; exit 1 ;; esac
+          done < <(otool -L .runtime/kujo/target/release/kujo | tail -n +2 | awk '{print $1}')
+      - name: Package checked candidate and test isolated installation
+        shell: bash
+        env:
+          KUJO_BIN: ${{ github.workspace }}/.runtime/kujo/target/${{ runner.os == 'Windows' && 'x86_64-pc-windows-msvc/' || '' }}release/kujo${{ runner.os == 'Windows' && '.exe' || '' }}
+          KUJO_SOURCE_ROOT: ${{ github.workspace }}/.runtime/kujo
+          BUNDLE_PLATFORM: ${{ runner.os == 'Windows' && 'windows-x64' || runner.os == 'macOS' && (runner.arch == 'ARM64' && 'macos-arm64' || 'macos-x64') || 'linux-x64' }}
+        run: bash scripts/package.sh
+      - name: Install Linux bundle in a clean offline OS container
+        if: runner.os == 'Linux'
+        shell: bash
+        run: bash scripts/verify_linux_bundle.sh "$PWD/dist"
+      - name: Upload checksummed candidate bundles
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: bluepencil-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          path: dist/*
+          if-no-files-found: error

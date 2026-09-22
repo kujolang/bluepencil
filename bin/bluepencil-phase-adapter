@@ -6,4 +6,4 @@ if [ -z "${KUJO_BIN:-}" ]; then
   elif [ -f "$ROOT/runtime/kujo.exe" ]; then KUJO_BIN="$ROOT/runtime/kujo.exe"
   else KUJO_BIN=kujo; fi
 fi
-exec "$KUJO_BIN" run "$ROOT/bluepencil.kujo" --isolated-imports -- "$@"
+exec "$KUJO_BIN" run "$ROOT/bluepencil-adapter.kujo" --isolated-imports --allow-fs-read

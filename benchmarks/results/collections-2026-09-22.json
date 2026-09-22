@@ -1,0 +1,169 @@
+{
+  "benchmark_source_sha256": "2662cdec6ad88c59eda1b15ff33fa0bde1d177e3bfde883e35329de1445a4bf6",
+  "disk_usage_kib": "383920\t/home/runner/work/bluepencil/bluepencil/.loop-engineering/collection-benchmark/state\n19448\t/home/runner/work/bluepencil/bluepencil/.loop-engineering/collection-benchmark/index",
+  "fixture_records": 95000,
+  "generation": {
+    "operation": "generate",
+    "peak_rss_bytes": 21458944,
+    "records": 95000,
+    "wall_ms": 29710.868025
+  },
+  "host": {
+    "architecture": "x86_64",
+    "conditions": "One benchmark process at a time in a dedicated job; warm filesystem caches and fresh processes. No other workload is started by this job. Shared CI hardware noise remains possible.",
+    "runner": "ubuntu-24.04 GitHub-hosted"
+  },
+  "interpretation": "Three warm-filesystem fresh-process samples; diagnostic comparison, not an SLO. Every selected record serialized to JSONL and discarded by the same output sink. See host metadata for contention and profiling conditions.",
+  "measurements": [
+    {
+      "filter": "all",
+      "implementation": "flat",
+      "median_peak_rss_bytes": 698810368,
+      "median_wall_ms": 59949.068234000006,
+      "samples": [
+        {
+          "max_retained_json_bytes": 101000,
+          "operation": "flat",
+          "ordinal_sum": 4512452500,
+          "pages": 190,
+          "peak_rss_bytes": 698810368,
+          "records": 95000,
+          "wall_ms": 59949.068234000006
+        },
+        {
+          "max_retained_json_bytes": 101000,
+          "operation": "flat",
+          "ordinal_sum": 4512452500,
+          "pages": 190,
+          "peak_rss_bytes": 699658240,
+          "records": 95000,
+          "wall_ms": 62549.338947
+        },
+        {
+          "max_retained_json_bytes": 101000,
+          "operation": "flat",
+          "ordinal_sum": 4512452500,
+          "pages": 190,
+          "peak_rss_bytes": 697823232,
+          "records": 95000,
+          "wall_ms": 59166.80493199999
+        }
+      ]
+    },
+    {
+      "filter": "sparse",
+      "implementation": "flat",
+      "median_peak_rss_bytes": 26615808,
+      "median_wall_ms": 31417.245929000004,
+      "samples": [
+        {
+          "max_retained_json_bytes": 194,
+          "operation": "flat",
+          "ordinal_sum": 4465000,
+          "pages": 95,
+          "peak_rss_bytes": 26861568,
+          "records": 95,
+          "wall_ms": 32397.669750000005
+        },
+        {
+          "max_retained_json_bytes": 194,
+          "operation": "flat",
+          "ordinal_sum": 4465000,
+          "pages": 95,
+          "peak_rss_bytes": 26210304,
+          "records": 95,
+          "wall_ms": 31417.245929000004
+        },
+        {
+          "max_retained_json_bytes": 194,
+          "operation": "flat",
+          "ordinal_sum": 4465000,
+          "pages": 95,
+          "peak_rss_bytes": 26615808,
+          "records": 95,
+          "wall_ms": 30903.618907000004
+        }
+      ]
+    },
+    {
+      "filter": "all",
+      "implementation": "segments",
+      "median_peak_rss_bytes": 665456640,
+      "median_wall_ms": 19217.748322000003,
+      "samples": [
+        {
+          "max_retained_json_bytes": 145371,
+          "operation": "segments",
+          "ordinal_sum": 4512452500,
+          "pages": 285,
+          "peak_rss_bytes": 665579520,
+          "records": 95000,
+          "wall_ms": 19790.881299
+        },
+        {
+          "max_retained_json_bytes": 145371,
+          "operation": "segments",
+          "ordinal_sum": 4512452500,
+          "pages": 285,
+          "peak_rss_bytes": 665456640,
+          "records": 95000,
+          "wall_ms": 18783.295206
+        },
+        {
+          "max_retained_json_bytes": 145371,
+          "operation": "segments",
+          "ordinal_sum": 4512452500,
+          "pages": 285,
+          "peak_rss_bytes": 664879104,
+          "records": 95000,
+          "wall_ms": 19217.748322000003
+        }
+      ]
+    },
+    {
+      "filter": "sparse",
+      "implementation": "segments",
+      "median_peak_rss_bytes": 24383488,
+      "median_wall_ms": 94.543521,
+      "samples": [
+        {
+          "max_retained_json_bytes": 44066,
+          "operation": "segments",
+          "ordinal_sum": 4465000,
+          "pages": 95,
+          "peak_rss_bytes": 24334336,
+          "records": 95,
+          "wall_ms": 102.185534
+        },
+        {
+          "max_retained_json_bytes": 44066,
+          "operation": "segments",
+          "ordinal_sum": 4465000,
+          "pages": 95,
+          "peak_rss_bytes": 24403968,
+          "records": 95,
+          "wall_ms": 94.543521
+        },
+        {
+          "max_retained_json_bytes": 44066,
+          "operation": "segments",
+          "ordinal_sum": 4465000,
+          "pages": 95,
+          "peak_rss_bytes": 24383488,
+          "records": 95,
+          "wall_ms": 94.479531
+        }
+      ]
+    }
+  ],
+  "recorded_at": "2026-09-22T19:28:27Z",
+  "runtime_sha256": "778c2ea8bde3f54e7e75248d0013b70ac3fda72e021c975d169b841acabeaea5",
+  "runtime_source": "262b3e7517ac47edca843120dd8689c0c820d62e; no-default-features; opt-level 1; LTO false; codegen-units 16",
+  "schema_version": "1.0.0",
+  "snapshot_build": {
+    "operation": "build",
+    "peak_rss_bytes": 704925696,
+    "records": 95000,
+    "wall_ms": 94011.202734
+  }
+}

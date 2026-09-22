@@ -1,0 +1,13 @@
+from src.filesystem import read_text
+mut passed := 0; mut failed := 0
+func check(ok,label) { if ok { passed += 1 } else { failed += 1; eprint("FAIL: " + label) } }
+let contents := read_text("fixtures/helpsteer2/corpus.json",1048576)
+let corpus := parse_json(contents)
+check(sha256(contents) == "8f07e44268f520ce29dc2625a8ae8cd85710e0e99a4b44dd9315c88f8ef5fb61","licensed source subset frozen byte for byte")
+check(len(corpus["cases"]) == 18 && corpus["license"] == "CC-BY-4.0" && corpus["revision"] == "990b2711a36180dd19d9c94b8627844866f8982a","corpus count and provenance")
+let expected := parse_json(read_text("fixtures/helpsteer2/agreement.json",65536))
+let execution := spawn_process([args()[0],"run","scripts/evaluate_editorial_preferences.kujo"],{"timeout_ms":30000,"max_output_bytes":65536})
+check(execution.exitcode == 0 && to_json(parse_json(execution.stdout)) == to_json(expected),"real original labels reproduce saved agreement")
+check(expected["result"]["pairs"] == 18 && expected["result"]["ratings_per_pair"] == 3 && abs(expected["result"]["fleiss_kappa"] - 0.553103448275862) < 0.0000001 && !expected["result"]["semantic_accuracy_measured"],"measurement and evidence boundary")
+print(to_string(passed) + " passed; " + to_string(failed) + " failed")
+if failed > 0 { exit(1) }

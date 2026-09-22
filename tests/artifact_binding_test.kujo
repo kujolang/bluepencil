@@ -1,0 +1,31 @@
+from src.core import dispatch
+from src.args import parse_args
+from src.filesystem import digest_file
+from tests.support import temp_path, cleanup
+let artifact_root := temp_path("bluepencil-artifact-binding-")
+create_dir(artifact_root)
+let artifact_file := artifact_root + "/artifact.bin"
+mut passed := 0; mut failed := 0
+func check(ok,label) { if ok { passed += 1 } else { failed += 1; eprint("FAIL: " + label) } }
+write_file(artifact_file,"abc",false)
+let small := dispatch("review",parse_args(["--state",artifact_root + "/state","--input","fixtures/core.json","--actor","fixture-reviewer","--id","review-small-artifact","--path",artifact_file],[]))
+check(small["ok"],"small artifacts accept the advertised maximum")
+check(digest_file(artifact_file,67108864)["sha256"] == sha256("abc"),"streaming hash matches known bytes")
+mut artifact_chunk := "a"
+while byte_length(artifact_chunk) < 1048576 { artifact_chunk = artifact_chunk + artifact_chunk }
+write_file(artifact_file,"",true)
+mut chunks := 0
+while chunks < 9 { append_file(artifact_file,artifact_chunk); chunks += 1 }
+let large := dispatch("review",parse_args(["--state",artifact_root + "/large-state","--input","fixtures/core.json","--actor","fixture-reviewer","--id","review-large-artifact","--path",artifact_file],[]))
+check(large["ok"] && large["value"]["record"]["artifact"]["bytes"] == 9437184,"artifact larger than whole-file reader cap is bound")
+while chunks < 64 { append_file(artifact_file,artifact_chunk); chunks += 1 }
+check(digest_file(artifact_file,67108864)["bytes"] == 67108864,"exact 64 MiB digest succeeds")
+append_file(artifact_file,"x")
+mut overflow_rejected := false
+try { digest_file(artifact_file,67108864) } except error { overflow_rejected = true }
+check(overflow_rejected,"64 MiB plus one byte is rejected")
+let oversized := dispatch("review",parse_args(["--state",artifact_root + "/overflow-state","--input","fixtures/core.json","--actor","fixture-reviewer","--id","review-overflow-artifact","--path",artifact_file],[]))
+check(!oversized["ok"] && oversized["code"] == "artifact_too_large" && !file_exists(artifact_root + "/overflow-state"),"oversized review creates no state")
+cleanup(artifact_root)
+print(to_string(passed) + " passed; " + to_string(failed) + " failed")
+if failed > 0 { exit(1) }

@@ -1,3 +1,4 @@
+from src.checkpoints import create_checkpoint, verify_checkpoint
 from src.filesystem import read_text, write_text, digest_file, rooted_path
 from src.args import parse_args
 from src.streaming import stream_records
@@ -147,6 +148,8 @@ func dispatch_inner(command, parsed) {
     if len(parsed["errors"]) > 0 { return {"ok": false, "code": "invalid_arguments", "error": parsed["errors"][0]} }
     p := profile(); config_result := load_config(flag(parsed, "config", "")); if !config_result["ok"] { return config_result }; config := config_result["value"]
     state := setting(parsed, config, "state", p["default_state"])
+    if command == "checkpoint-create" { return create_checkpoint(state,flag(parsed,"output",""),flag(parsed,"custodian","")) }
+    if command == "checkpoint-verify" { return verify_checkpoint(state,flag(parsed,"checkpoint","")) }
     if command == "init" { return initialize(state, {"schema_version": "1.0.0", "tool": p["slug"], "tool_version": p["version"], "contract_version": p["contract_version"], "created_at": now_utc()}) }
     if command == "export-stream" || command == "report-stream" {
         if flag(parsed,"output","") != "" { return {"ok":false,"code":"stdout_required","error":"streaming uses JSONL stdout; redirect it and require the final completion receipt"} }
@@ -175,7 +178,7 @@ func dispatch_inner(command, parsed) {
         if !limit["ok"] { return limit }
         return list_history(state, flag(parsed, "after", ""), limit["value"])
     }
-    if command == "version" { return {"ok": true, "value": {"tool": p["slug"], "version": p["version"], "contract_version": p["contract_version"], "supported_record_versions": get(p, "record_versions", [p["version"]]), "minimum_kujo": "1.4.0", "required_runtime_contract": "bluepencil-confined-pages-v1"}} }
+    if command == "version" { return {"ok": true, "value": {"tool": p["slug"], "version": p["version"], "contract_version": p["contract_version"], "supported_record_versions": get(p, "record_versions", [p["version"]]), "runtime_version_label": "1.4.0", "runtime_requirement": "source-pinned; a version label alone is insufficient", "required_runtime_contract": "bluepencil-confined-adapter-v2"}} }
     if command == "doctor" {
         state_error := validate_state_path(state); listing := {"records": [], "warnings": [], "truncated": false}
         if state_error == "" { listing = list_records(state, "", "", 1000) }
@@ -184,7 +187,7 @@ func dispatch_inner(command, parsed) {
         if state_error != "" { code = "unsafe_state"; error = state_error }
         if state_error == "" && len(listing["warnings"]) > 0 { code = "corrupt_state"; error = "one or more records are unreadable" }
         if listing["truncated"] { code = "health_incomplete"; error = "health scan limit reached" }
-        return {"ok": healthy, "code": code, "error": error, "value": {"healthy": healthy, "tool": p["slug"], "version": p["version"], "minimum_kujo": "1.4.0", "required_runtime_contract": "bluepencil-confined-pages-v1", "state": state, "record_count": len(listing["records"]), "truncated": listing["truncated"], "corrupt_records": listing["warnings"], "limits": {"input_bytes": 1048576, "record_bytes": 1048576, "artifact_bytes": 67108864, "list_records": 1000}, "limitations": p["limitations"]}}
+        return {"ok": healthy, "code": code, "error": error, "value": {"healthy": healthy, "tool": p["slug"], "version": p["version"], "runtime_version_label": "1.4.0", "runtime_requirement": "source-pinned; a version label alone is insufficient", "required_runtime_contract": "bluepencil-confined-adapter-v2", "state": state, "record_count": len(listing["records"]), "truncated": listing["truncated"], "corrupt_records": listing["warnings"], "limits": {"input_bytes": 1048576, "record_bytes": 1048576, "artifact_bytes": 67108864, "list_records": 1000}, "limitations": p["limitations"]}}
     }
     if has(p["show_commands"], command) {
         id := flag(parsed, "id", ""); if id == "" { return {"ok": false, "code": "id_required", "error": "show requires --id"} }
@@ -242,7 +245,7 @@ export func main(argv) {
     if !has(p["commands"], command) { eprint(p["name"] + ": unknown command: " + command); return 2 }
     parsed := parse_args(command_tokens(argv, command), ["json", "dry-run", "force"])
     if len(parsed["errors"]) > 0 { eprint(p["name"] + ": " + parsed["errors"][0]); return 2 }
-    allowed := ["key-file", "owner", "state", "config", "input", "id", "other-id", "actor", "timestamp", "path", "type", "after", "limit", "output", "json", "dry-run", "force"]
+    allowed := ["checkpoint", "custodian", "key-file", "owner", "state", "config", "input", "id", "other-id", "actor", "timestamp", "path", "type", "after", "limit", "output", "json", "dry-run", "force"]
     for name in keys(parsed["flags"]) { if !has(allowed, name) { eprint(p["name"] + ": unknown flag --" + name); return 2 } }
     if len(parsed["positionals"]) > 0 { eprint(p["name"] + ": unexpected positional argument: " + parsed["positionals"][0]); return 2 }
     result := dispatch(command, parsed)

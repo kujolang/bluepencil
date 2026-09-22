@@ -1,6 +1,6 @@
 # BluePencil
 
-[![Version](https://img.shields.io/badge/version-0.2.0-black)](VERSION)
+[![Version](https://img.shields.io/badge/version-0.3.0--rc.1-black)](VERSION)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 [![built with Kujo](https://img.shields.io/badge/built%20with-Kujo-white.svg)](https://github.com/kujolang/kujo)
 [![CI](https://github.com/kujolang/bluepencil/actions/workflows/validate.yml/badge.svg)](https://github.com/kujolang/bluepencil/actions/workflows/validate.yml)
@@ -12,19 +12,22 @@ brand integrity, format fidelity, and strategic purpose.
 
 ## Readiness and scope
 
-BluePencil 0.2.0 is a local editorial evidence CLI written in
+BluePencil 0.3.0-rc.1 is a local editorial evidence CLI written in
 [Kujo](https://github.com/kujolang/kujo). It records human judgments, enforces
 all eight ratings and blocker precedence, compares records, and binds optional
 artifacts by SHA-256. The vendored calibration corpus contains 18 blind pairs
-covering 23 Publishing House roles.
+covering 23 Publishing House roles, complemented by 18 licensed writing pairs
+with original independent human preference labels.
 
 It is not yet a universal enterprise platform. Use a trusted local state
 directory with cooperating writers. There is no authenticated multi-user
 service. Immutable transaction intents support explicit recovery, and `audit`
 reconciles record bytes against creation events. Review
-the [September readiness assessment and next-session worklist](docs/READINESS_REVIEW_2026-09-22.md)
+the [September readiness assessment](docs/READINESS_REVIEW_2026-09-22.md)
 before relying on it for regulated or shared-host workflows. Further product
-directions are in the [next-session worklist](docs/NEXT_SESSION_2026-09-22.md).
+directions are in the [new follow-up worklist](docs/NEXT_SESSION_AFTER_0_3_RC1.md);
+the [execution ledger](docs/NEXT_SESSION_EXECUTION_2026-09-22.md) records this
+release candidate's implementation and verification evidence.
 
 Evaluation commands provide blind calibration scoring/trends, trusted-key HMAC
 bundle verification and upgrade checks, deterministic format checks, and
@@ -34,6 +37,19 @@ quality. See the [executable editorial walkthrough](docs/EDITORIAL_WALKTHROUGH.m
 and [workflow contracts](docs/WORKFLOWS.md).
 
 ## Quick install
+
+Download the archive and matching `.sha256` file for your platform from the
+[0.3.0-rc.1 release](https://github.com/kujolang/bluepencil/releases/tag/v0.3.0-rc.1).
+The Linux x64, macOS ARM64, and Windows x64 bundles include the exact required
+Kujo runtime. Verify the archive before extracting it: `sha256sum -c FILE.sha256`
+on Linux, `shasum -a 256 -c FILE.sha256` on macOS, or compare
+`Get-FileHash FILE.tar.gz -Algorithm SHA256` with the checksum file in PowerShell.
+Then run `bin/bluepencil` (Windows: `bin\bluepencil.cmd`) from the extracted
+folder. Keep the full folder together. Linux installation is tested on Ubuntu
+24.04; platform CI is additional compatibility evidence, not support for every
+OS release. These are checksummed release candidates, not signed installers.
+
+For a source checkout with an independently supplied compatible runtime:
 
 ```bash
 git clone https://github.com/kujolang/bluepencil.git
@@ -46,12 +62,13 @@ bluepencil doctor --json
 ```
 
 This revision requires the source-pinned Kujo runtime in
-[`runtime-requirements.json`](runtime-requirements.json), including the new
-`list_dir_beneath` API. A version label alone is insufficient; released 1.0.1
+[`runtime-requirements.json`](runtime-requirements.json), including confined directory I/O, bounded stdin, and streaming artifact digests. A version label alone is insufficient; released 1.0.1
 is unsupported. Build and compatibility instructions are in
 [Runtime support](docs/RUNTIME_SUPPORT.md). Run `kujo run scripts/runtime_probe.kujo`
 before using an independently supplied runtime.
-No model service is invoked by the baseline CLI.
+No model service is invoked by the baseline CLI. The optional read-only
+[Publishing House adapter](docs/OPERATOR_ADAPTER.md) consumes existing review evidence.
+[Collaboration requirements](docs/design/COLLABORATION.md) preserve the local CLI boundary.
 
 ## Quick start
 
@@ -73,10 +90,13 @@ bluepencil report --limit 100 --json
 | `style`, `brand`, `claims`, `format`, `accessibility` | Record focused deterministic or semantic findings. |
 | `disagreements` | Compare two review judgments, dimensions, and blockers using `--id` and `--other-id`. |
 | `report` | List records with explicit per-page type, verdict, and blocker totals. |
+| `checkpoint-create`, `checkpoint-verify` | Bind state to an independently retained receipt and verify restored or current state. |
 | `history`, `audit` | Read creation events and reconcile record/event integrity. |
 | `transaction`, `recover` | Inspect an immutable intent and resume exact-byte publication using its owner token. |
 | `validate`, `show`, `export` | Verify and emit portable review evidence. |
 | `export-stream`, `report-stream` | Emit bounded JSONL pages and a final completion receipt. |
+| `panel-agreement` | Measure equally sized independent panels with nominal Fleiss’ kappa; reviewers may differ between cases. |
+| `reviewer-agreement` | Measure two supplied blind label sets with raw agreement and Cohen’s kappa. |
 | `calibration-score`, `calibration-trend` | Score supplied blind judgments and ordered run trends. |
 | `bundle-verify`, `bundle-upgrade` | Authenticate a bundle using an explicit trusted key; check version compatibility. |
 | `format-check`, `accessibility-check`, `adapter-check` | Evaluate supplied content rules or validate clearly labeled declarations. |
@@ -125,19 +145,29 @@ judgment. Measured scan behavior and memory tradeoffs are documented in
 bash scripts/validate.sh
 ```
 
+Six additional original pairs are [awaiting independent labels](fixtures/editorial_expansion/README.md);
+they are not yet reference judgments or semantic-quality evidence.
+The [licensed HelpSteer2 supplement](fixtures/helpsteer2/README.md) supplies 18
+additional pairs and 54 independent annotations. Its measured pairwise agreement
+is 77.78% and Fleiss’ kappa is 0.5531. These measure reviewer agreement on a small
+writing subset, not the accuracy of BluePencil or an automated judge.
+
 The canonical entrypoint is `bluepencil.kujo`; all runtime logic lives in
 `src/`. See [contracts](docs/contracts.md) and [security](docs/security.md).
 
 ## Repository layout
 
-- `bluepencil.kujo`: public two-line entrypoint importing `src.core`.
+- `bluepencil.kujo`, `bluepencil-adapter.kujo`: public two-line entrypoints.
 - `src/`: CLI dispatch, arguments, domain rules, storage, and library helpers.
-- `bin/bluepencil`, `bin/bluepencil.cmd`: shell and Windows launchers using `KUJO_BIN` or PATH.
+- `bin/bluepencil`, `bin/bluepencil.cmd`: shell and Windows launchers using the bundled runtime, `KUJO_BIN`, or PATH.
 - `tests/`, `fixtures/`, `schemas/`: executable checks and portable examples/contracts.
 - `scripts/`: runtime probing, validation, concurrent writers, and crash orchestration.
-- `benchmarks/`: repeatable first-page latency and peak-RSS measurements.
+- `benchmarks/`: repeatable page and near-ceiling collection measurements.
 - `docs/`: contracts, security boundaries, historical reviews, and future work.
 
 The root entrypoint, manifest, version, license, and project documentation are
 intentional public files; no duplicate root implementation remains. All
 application behavior and test assertions remain in Kujo.
+
+Code and original fixtures use the MIT license. The imported HelpSteer2 corpus
+uses [CC BY 4.0 with attribution](fixtures/helpsteer2/README.md).

@@ -2,17 +2,22 @@ export func profile() {
     return {
     "slug": "bluepencil",
     "name": "BluePencil",
-    "version": "0.2.0",
+    "version": "0.3.0-rc.1",
     "record_versions": [
         "0.1.0",
-        "0.2.0"
+        "0.2.0",
+        "0.3.0-rc.1"
     ],
     "contract_version": "1.0.0",
     "default_state": ".bluepencil",
     "description": "Editorial quality and calibration records across eight dimensions, blockers, verdicts, and reviewer disagreement.",
     "commands": [
+        "checkpoint-create",
+        "checkpoint-verify",
         "export-stream",
         "report-stream",
+        "reviewer-agreement",
+        "panel-agreement",
         "calibration-score",
         "calibration-trend",
         "bundle-verify",
@@ -42,6 +47,8 @@ export func profile() {
         "history"
     ],
     "workflow_commands": [
+        "reviewer-agreement",
+        "panel-agreement",
         "calibration-score",
         "calibration-trend",
         "bundle-verify",
@@ -51,8 +58,11 @@ export func profile() {
         "adapter-check"
     ],
     "read_commands": [
+        "checkpoint-verify",
         "export-stream",
         "report-stream",
+        "reviewer-agreement",
+        "panel-agreement",
         "calibration-score",
         "calibration-trend",
         "bundle-verify",
