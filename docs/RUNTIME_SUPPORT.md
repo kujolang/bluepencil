@@ -1,6 +1,6 @@
 # Runtime and platform contract
 
-This revision requires Kujo commit `6116654f684ae07427eb180cf43b55fc8a53074c`
+This revision requires Kujo commit `ee6ce1dabd6629be33b3241b0ab9b5a970256c56`
 from `kujolang/kujo` (version label 1.4.0), recorded in
 [`runtime-requirements.json`](../runtime-requirements.json). This is a source
 pin, not a claim that every released 1.4.0 binary has these APIs.
@@ -8,7 +8,7 @@ pin, not a claim that every released 1.4.0 binary has these APIs.
 ```bash
 git clone https://github.com/kujolang/kujo.git kujo-runtime
 cd kujo-runtime
-git checkout 6116654f684ae07427eb180cf43b55fc8a53074c
+git checkout ee6ce1dabd6629be33b3241b0ab9b5a970256c56
 cargo build --release --no-default-features --locked
 # Set KUJO_BIN to this checkout's absolute target/release/kujo path.
 # On Windows, the executable is target/release/kujo.exe.

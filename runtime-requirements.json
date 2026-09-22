@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "contract": "bluepencil-confined-pages-v1",
   "repository": "https://github.com/kujolang/kujo",
-  "commit": "6116654f684ae07427eb180cf43b55fc8a53074c",
+  "commit": "ee6ce1dabd6629be33b3241b0ab9b5a970256c56",
   "version_label": "1.4.0",
   "release_status": "source-pinned; not a released Kujo version",
   "required_features": ["list_dir_beneath", "read_file_beneath", "write_file_atomic_beneath", "byte_length", "json_schema_validate", "hmac_sha256_verify"]
