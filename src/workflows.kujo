@@ -1,0 +1,25 @@
+from src.common import get, parse_object
+from src.hardening import score_blinded_run, disagreement_trend, verify_bundle, bundle_upgrade_compatible, evaluate_format, accessibility_conformance, local_model_conformance
+
+export func evaluate_workflow(command, payload, key_file) {
+    mut result := null
+    if command == "calibration-score" { result = score_blinded_run(payload) }
+    else if command == "calibration-trend" { result = disagreement_trend(get(payload,"runs",null)) }
+    else if command == "bundle-upgrade" { result = bundle_upgrade_compatible(get(payload,"current",null),get(payload,"candidate",null)) }
+    else if command == "format-check" { result = evaluate_format(payload) }
+    else if command == "accessibility-check" { result = accessibility_conformance(payload) }
+    else if command == "adapter-check" { result = local_model_conformance(payload) }
+    else if command == "bundle-verify" {
+        if key_file == "" || !path_is_file(key_file) || path_is_symlink(key_file) || file_size(key_file) > 8192 { return {"ok":false,"code":"unsafe_key_file","error":"verification requires an explicit regular key file of at most 8 KiB"} }
+        key_result := parse_object(read_file(key_file),"trusted key file")
+        if !key_result["ok"] { return {"ok":false,"code":"invalid_key_file","error":"trusted key file is invalid"} }
+        key := key_result["value"]
+        if type(get(key,"key_id",null)) != "string" || get(key,"key_id","") == "" || get(payload,"key_id",null) != key["key_id"] || get(key,"status","") != "active" { return {"ok":false,"code":"untrusted_key","error":"key identity must match an explicitly trusted active key"} }
+        verified := verify_bundle(get(payload,"bundle",null),get(payload,"signature",null),get(key,"material",null))
+        if !verified { return {"ok":false,"code":"signature_mismatch","error":"bundle authentication failed"} }
+        result = {"ok":true,"verified":true,"algorithm":"hmac-sha256","key_id":key["key_id"],"trust":"explicit_local_shared_key"}
+    } else { return {"ok":false,"code":"unknown_workflow","error":"unsupported evaluation workflow"} }
+    if !result["ok"] { return result }
+    if command == "format-check" && !result["passed"] { return {"ok":false,"code":"format_rules_failed","error":"one or more format rules failed","value":result} }
+    return {"ok":true,"value":result}
+}

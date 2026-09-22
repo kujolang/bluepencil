@@ -1,0 +1,42 @@
+from src.core import dispatch, validate_record
+from src.args import parse_args
+from src.profile import profile
+from src.domain import validate_command
+from src.hardening import score_blinded_run, bundle_upgrade_compatible, sign_bundle, format_rule_pack, accessibility_conformance, streaming_review_report, local_model_conformance
+mut passed := 0; mut failed := 0
+func check(ok,label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
+root := "/tmp/bluepencil-contracts-" + uuid_v4(); create_dir(root)
+config_path := root + "/config.json"
+for config in [{"state":[]},{"actor":4},{"limit":"10"},{"limit":true},{"limit":0},{"unexpected":true}] {
+    write_file(config_path,to_json(config),true)
+    check(!dispatch("version",parse_args(["--config",config_path],[]))["ok"],"config shape rejected")
+}
+record := {"schema_version":"1.0.0","tool_version":"0.2.0","contract_version":"1.0.0","id":"review-schema","command":"review","record_type":"review","actor":"fixture","created_at":"2026-09-22T00:00:00Z","provenance":[],"payload":parse_json(read_file("fixtures/core.json"))}
+schema := parse_json(read_file("schemas/record.schema.json"))
+check(json_schema_validate(record,schema)["valid"] && validate_record(record,profile())["ok"],"actual record satisfies schema and domain")
+record["tool_version"] = "0.1.0"
+check(json_schema_validate(record,schema)["valid"] && validate_record(record,profile())["ok"],"legacy schema and domain agree")
+record["command"] = "report"; record["record_type"] = "report"
+check(!json_schema_validate(record,schema)["valid"] && !validate_record(record,profile())["ok"],"read-only record rejected")
+record["command"] = "review"; record["record_type"] = "review"
+for artifact in [true,[],{"path":1,"bytes":0,"sha256":"bad"},{"path":"fixtures/core.json","bytes":"10","sha256":"bad"}] {
+    record["artifact"] = artifact
+    check(!json_schema_validate(record,schema)["valid"] && !validate_record(record,profile())["ok"],"malformed artifact rejected")
+}
+record["artifact"] = null
+for findings in [["text"],[{}],[{"code":"C"}],[{"code":"C","message":5}]] {
+    payload := parse_json(read_file("fixtures/core.json")); payload["blocking_findings"] = findings; record["payload"] = payload
+    check(validate_command("review",payload,null) != "" && !json_schema_validate(record,schema)["valid"],"finding entries have a contract")
+}
+check(!bundle_upgrade_compatible({}, {})["ok"],"empty bundle versions rejected")
+check(!bundle_upgrade_compatible({"bundle_id":"x","version":1},{"bundle_id":"x","version":"1.0.0"})["ok"],"non-string bundle version rejected")
+check(!bundle_upgrade_compatible({"bundle_id":"x","version":"1.2.0"},{"bundle_id":"x","version":"1.1.0"})["ok"],"downgrade rejected")
+check(!sign_bundle({"bundle_id":"x","version":"1.bad"},"fixture-key-long-enough")["ok"],"invalid manifest cannot be signed")
+check(!score_blinded_run({"blinded":true,"expected":[{}],"observed":[{}]})["ok"],"nontext judgments rejected")
+check(!format_rule_pack([])["ok"],"nontext format rejected")
+check(!accessibility_conformance({"declared":true,"capabilities":[4]})["ok"],"nontext capability rejected")
+check(!accessibility_conformance({"declared":true,"capabilities":["captions","captions"]})["ok"],"duplicate capability rejected")
+check(!streaming_review_report([{}],1)["ok"] && !streaming_review_report([],"1")["ok"],"report shape rejected")
+check(!local_model_conformance({"offline":true,"redaction_gate":"complete","model_output":[]})["ok"],"adapter output shape rejected")
+delete_file(config_path); os_rmdir(root)
+print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

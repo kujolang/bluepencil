@@ -1,3 +1,4 @@
+from tests.support import cleanup
 from src.core import dispatch
 from src.args import parse_args
 mut passed:=0;mut failed:=0
@@ -14,4 +15,5 @@ second:=dispatch("review",opts(["--state",root,"--input",second_path,"--actor","
 comparison:=dispatch("compare",opts(["--state",root,"--id","review-a","--other-id","review-b"]));check(comparison["ok"]&&!comparison["value"]["records_equal"],"review disagreement comparable")
 manifest:=parse_json(read_file("fixtures/calibration/evaluation-manifest.json"));check(manifest["case_count"]==18&&len(manifest["role_coverage"])==23,"calibration corpus complete")
 for path in [blocked,missing_path,second_path]{delete_file(path)}
+cleanup(root)
 print(to_string(passed)+" passed; "+to_string(failed)+" failed");if failed>0{exit(1)}

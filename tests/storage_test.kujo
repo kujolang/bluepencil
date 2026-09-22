@@ -1,3 +1,4 @@
+from tests.support import cleanup
 from src.storage import initialize, save_new
 
 mut passed := 0
@@ -23,5 +24,6 @@ conflict = save_new(root, record)
 check(!conflict["ok"] && conflict["code"] == "write_conflict", "exclusive file lock rejects second writer")
 check(read_file(root + "/locks/record-file-locked.lock") == "another writer", "conflict preserves another writer lock")
 
+cleanup(root)
 print(to_string(passed) + " passed; " + to_string(failed) + " failed")
 if failed > 0 { exit(1) }

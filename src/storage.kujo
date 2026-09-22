@@ -1,15 +1,6 @@
 from src.common import get, parse_object, safe_id
 from src.transaction import prepare_transaction, recover_transaction
 
-func parent_dir(path) {
-    mut index := len(path) - 1
-    while index >= 0 {
-        if substring(path, index, index + 1) == "/" { if index == 0 { return "/" }; return substring(path, 0, index) }
-        index = index - 1
-    }
-    return "."
-}
-
 func ensure_tree(path) {
     if path == "" || path == "." { return "" }
     parts := split(path, "/"); mut current := ""; if starts_with(path, "/") { current = "/" }

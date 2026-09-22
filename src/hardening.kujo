@@ -1,4 +1,5 @@
 from src.common import get, has, canonical_json, find_sensitive_key
+from src.domain import VERDICTS
 
 FORMAT_RULES := {
     "newsletter": ["subject_present", "preview_text_present", "single_primary_cta", "links_have_labels"],
@@ -7,55 +8,141 @@ FORMAT_RULES := {
     "audiovisual-script": ["speaker_labels_present", "visual_cues_present", "captions_planned", "audio_description_planned"]
 }
 
+func invalid(message) { return {"ok":false,"code":"invalid_contract","error":message} }
 func bounded_array(value, maximum) { return type(value) == "array" && len(value) > 0 && len(value) <= maximum }
+func text_present(value) { return type(value) == "string" && trim(value) != "" && len(value) <= 32768 }
 
 export func score_blinded_run(run) {
-    if type(run) != "dict" || get(run, "blinded", false) != true { return {"ok":false,"error":"calibration scoring requires blinded=true"} }
+    if type(run) != "dict" || get(run, "blinded", false) != true { return invalid("calibration scoring requires blinded=true") }
     expected := get(run, "expected", []); observed := get(run, "observed", [])
-    if !bounded_array(expected, 10000) || !bounded_array(observed, 10000) || len(expected) != len(observed) { return {"ok":false,"error":"expected and observed must contain 1..10000 paired judgments"} }
-    mut matches := 0; mut disagreements := []
-    mut i := 0
-    while i < len(expected) { if expected[i] == observed[i] { matches = matches + 1 } else { disagreements = push(disagreements, {"index":i,"expected":expected[i],"observed":observed[i]}) }; i = i + 1 }
-    return {"ok":true,"pairs":len(expected),"matches":matches,"disagreements":disagreements,"agreement_rate":matches/len(expected)}
+    if !bounded_array(expected, 10000) || !bounded_array(observed, 10000) || len(expected) != len(observed) { return invalid("expected and observed must contain 1..10000 paired judgments") }
+    mut matches := 0; mut disagreements := []; mut index := 0
+    while index < len(expected) {
+        if !text_present(expected[index]) || !text_present(observed[index]) { return invalid("judgments must be nonempty bounded strings") }
+        if expected[index] == observed[index] { matches = matches + 1 }
+        else { disagreements = push(disagreements, {"index":index,"expected":expected[index],"observed":observed[index]}) }
+        index = index + 1
+    }
+    return {"ok":true,"pairs":len(expected),"matches":matches,"disagreements":disagreements,"agreement_rate":matches/len(expected),"evidence_kind":"supplied_blind_judgments"}
 }
 
 export func disagreement_trend(runs) {
-    if !bounded_array(runs, 1000) { return {"ok":false,"error":"runs must contain 1..1000 items"} }
+    if !bounded_array(runs, 1000) { return invalid("runs must contain 1..1000 items") }
     mut points := []; mut previous := null
-    for run in runs { scored := score_blinded_run(run); if !scored["ok"] { return scored }; rate := 1.0 - scored["agreement_rate"]; mut direction := "baseline"; if type(previous) != "null" { if rate < previous { direction = "improving" } else if rate > previous { direction = "worsening" } else { direction = "flat" } }; points = push(points,{"run_id":get(run,"run_id",""),"disagreement_rate":rate,"direction":direction}); previous = rate }
+    for run in runs {
+        scored := score_blinded_run(run)
+        if !scored["ok"] { return scored }
+        rate := 1.0 - scored["agreement_rate"]
+        mut direction := "baseline"
+        if type(previous) != "null" {
+            if rate < previous { direction = "improving" }
+            else if rate > previous { direction = "worsening" }
+            else { direction = "flat" }
+        }
+        points = push(points, {"run_id":get(run,"run_id",""),"disagreement_rate":rate,"direction":direction})
+        previous = rate
+    }
     return {"ok":true,"points":points}
 }
 
-export func sign_bundle(bundle, signing_key) { if type(bundle)!="dict"||type(signing_key)!="string"||len(signing_key)<16{return {"ok":false,"error":"bundle and a 16+ byte explicit signing key are required"}}; payload:=canonical_json(bundle);return {"ok":true,"algorithm":"hmac-sha256","payload_sha256":sha256(payload),"signature":hmac_sha256(signing_key,payload)} }
-export func verify_bundle(bundle, signature, verification_key) { signed:=sign_bundle(bundle,verification_key);return signed["ok"]&&signed["signature"]==signature }
+func valid_bundle(bundle) {
+    if type(bundle) != "dict" || !text_present(get(bundle,"bundle_id",null)) { return false }
+    version := get(bundle,"version",null)
+    if type(version) == "string" { for part in split(version,".") { if len(part) > 9 { return false } } }
+    return type(version) == "string" && len(version) <= 32 && regex_match(version,"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")
+}
+
+export func sign_bundle(bundle, signing_key) {
+    if !valid_bundle(bundle) || type(signing_key) != "string" || len(signing_key) < 16 || len(signing_key) > 4096 { return invalid("valid bundle manifest and explicit 16..4096 byte signing key required") }
+    payload := canonical_json(bundle)
+    if len(payload) > 1048576 { return invalid("bundle exceeds 1 MiB") }
+    return {"ok":true,"algorithm":"hmac-sha256","payload_sha256":sha256(payload),"signature":hmac_sha256(signing_key,payload)}
+}
+
+export func verify_bundle(bundle, signature, verification_key) {
+    if type(signature) != "string" || !regex_match(signature,"^[a-f0-9]{64}$") { return false }
+    signed := sign_bundle(bundle, verification_key)
+    return signed["ok"] && signed["signature"] == signature
+}
 
 export func bundle_upgrade_compatible(current, candidate) {
-    if type(current)!="dict"||type(candidate)!="dict"{return {"ok":false,"error":"bundle manifests must be objects"}}
-    if get(candidate,"bundle_id","")!=get(current,"bundle_id",""){return {"ok":false,"error":"bundle_id changed"}}
-    old_major:=split(get(current,"version","0.0.0"),".")[0];new_major:=split(get(candidate,"version","0.0.0"),".")[0]
-    if old_major!=new_major{return {"ok":false,"error":"major upgrades require explicit migration"}}
+    if !valid_bundle(current) || !valid_bundle(candidate) { return invalid("bundle manifests require an identity and semantic version") }
+    if candidate["bundle_id"] != current["bundle_id"] { return invalid("bundle_id changed") }
+    old := split(current["version"], "."); newer := split(candidate["version"], ".")
+    if old[0] != newer[0] { return invalid("major upgrades require explicit migration") }
+    if to_int(newer[1]) < to_int(old[1]) || (newer[1] == old[1] && to_int(newer[2]) < to_int(old[2])) { return invalid("bundle downgrade is not allowed") }
     return {"ok":true,"compatible":true}
 }
 
 export func local_model_conformance(receipt) {
-    if type(receipt)!="dict"||get(receipt,"offline",false)!=true{return {"ok":false,"error":"adapter must prove offline operation"}}
-    if !has(["complete","redacted"],get(receipt,"redaction_gate","")){return {"ok":false,"error":"redaction gate must complete before model invocation"}}
-    if find_sensitive_key(get(receipt,"model_output",{}),"")!=""{return {"ok":false,"error":"model output contains secret-shaped data"}}
-    return {"ok":true,"adapter":get(receipt,"adapter","local-model"),"conformant":true}
+    if type(receipt) != "dict" || get(receipt,"offline",false) != true { return invalid("adapter must declare offline operation") }
+    if !has(["complete","redacted"],get(receipt,"redaction_gate","")) { return invalid("redaction gate declaration is required") }
+    output := get(receipt,"model_output",null)
+    if type(output) != "dict" || find_sensitive_key(output,"") != "" { return invalid("model output must be an object without secret-shaped fields") }
+    return {"ok":true,"adapter":get(receipt,"adapter","local-model"),"conformant":true,"evidence_kind":"declaration","independently_verified":false}
 }
 
-export func format_rule_pack(format) { if has_key(FORMAT_RULES,format)==0{return {"ok":false,"error":"unsupported format"}};return {"ok":true,"format":format,"rules":FORMAT_RULES[format],"deterministic":true} }
+export func format_rule_pack(format) {
+    if type(format) != "string" || has_key(FORMAT_RULES,format) == 0 { return invalid("unsupported format") }
+    return {"ok":true,"format":format,"rules":FORMAT_RULES[format],"deterministic":true}
+}
+
+func entries_have_text(entries, field, allow_empty) {
+    if type(entries) != "array" || len(entries) > 1000 || (!allow_empty && len(entries) == 0) { return false }
+    for entry in entries { if !text_present(get(entry,field,null)) { return false } }
+    return true
+}
+
+export func evaluate_format(payload) {
+    pack := format_rule_pack(get(payload,"format",null))
+    if !pack["ok"] { return pack }
+    content := get(payload,"content",null)
+    if type(content) != "dict" { return invalid("format evaluation requires a content object") }
+    format := pack["format"]; mut checks := []
+    if format == "newsletter" {
+        ctas := get(content,"primary_ctas",null)
+        one_cta := type(ctas) == "array" && len(ctas) == 1 && text_present(ctas[0])
+        checks = [text_present(get(content,"subject",null)), text_present(get(content,"preview_text",null)), one_cta, entries_have_text(get(content,"links",[]),"label",true)]
+    } else if format == "social" {
+        budget := get(content,"character_budget",null); body := get(content,"body",null)
+        within_budget := type(budget) == "int" && budget > 0 && budget <= 100000 && text_present(body) && len(body) <= budget
+        disclosed := get(content,"links_disclosed",false) == true
+        checks = [text_present(get(content,"platform",null)), within_budget, disclosed, entries_have_text(get(content,"media",[]),"alt",true)]
+    } else if format == "case-study" {
+        consent := get(content,"subject_consent",false) == true
+        checks = [consent, entries_have_text(get(content,"claims",null),"evidence",false), text_present(get(content,"results_scope",null)), entries_have_text(get(content,"quotes",[]),"attribution",true)]
+    } else {
+        checks = [entries_have_text(get(content,"scenes",null),"speaker",false), entries_have_text(get(content,"scenes",null),"visual",false), text_present(get(content,"caption_plan",null)), text_present(get(content,"audio_description_plan",null))]
+    }
+    mut results := []; mut passed := true; mut index := 0
+    for rule in pack["rules"] {
+        if !checks[index] { passed = false }
+        results = push(results,{"rule":rule,"passed":checks[index]}); index = index + 1
+    }
+    return {"ok":true,"format":format,"passed":passed,"checks":results,"evidence_kind":"deterministic_supplied_content","semantic_quality_verified":false}
+}
 
 export func accessibility_conformance(evidence) {
-    if type(evidence)!="dict"||get(evidence,"declared",false)!=true{return {"ok":false,"error":"declared capability evidence is required"}}
-    capabilities:=get(evidence,"capabilities",[]);if type(capabilities)!="array"||len(capabilities)==0||len(capabilities)>100{return {"ok":false,"error":"capabilities must contain 1..100 entries"}}
-    for capability in capabilities { if !has(["alt-text","captions","transcript","color-contrast","reading-order","audio-description"],capability){return {"ok":false,"error":"unsupported accessibility capability: "+capability}} }
-    return {"ok":true,"conformant":true,"capabilities":capabilities}
+    if type(evidence) != "dict" || get(evidence,"declared",false) != true { return invalid("declared capability evidence is required") }
+    capabilities := get(evidence,"capabilities",[])
+    if !bounded_array(capabilities,100) { return invalid("capabilities must contain 1..100 entries") }
+    mut seen := []
+    for capability in capabilities {
+        if !has(["alt-text","captions","transcript","color-contrast","reading-order","audio-description"],capability) || has(seen,capability) { return invalid("unsupported or duplicate accessibility capability") }
+        seen = push(seen,capability)
+    }
+    return {"ok":true,"conformant":true,"capabilities":capabilities,"evidence_kind":"declaration","independently_verified":false}
 }
 
 export func streaming_review_report(reviews, batch_size) {
-    if type(reviews)!="array"||len(reviews)>10000||batch_size<1||batch_size>1000{return {"ok":false,"error":"reviews or batch_size exceed bounded streaming limits"}}
-    mut counts:={};mut batches:=0;mut i:=0
-    while i<len(reviews){verdict:=get(reviews[i],"verdict","unverified");counts[verdict]=get(counts,verdict,0)+1;if i%batch_size==0{batches=batches+1};i=i+1}
+    if type(reviews) != "array" || len(reviews) > 10000 || type(batch_size) != "int" || batch_size < 1 || batch_size > 1000 { return invalid("reviews or batch_size exceed bounded report limits") }
+    mut counts := {}; mut batches := 0; mut index := 0
+    for review in reviews {
+        verdict := get(review,"verdict",null)
+        if !has(VERDICTS,verdict) { return invalid("review must contain a valid verdict") }
+        counts[verdict] = get(counts,verdict,0) + 1
+        if index % batch_size == 0 { batches = batches + 1 }
+        index = index + 1
+    }
     return {"ok":true,"reviews":len(reviews),"batches":batches,"counts":counts,"bounded":true}
 }

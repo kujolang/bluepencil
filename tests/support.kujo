@@ -1,0 +1,9 @@
+// Remove only caller-owned fixture trees; never traverse a symlink.
+export func cleanup(path) {
+    if !file_exists(path) { return }
+    if path_is_symlink(path) { delete_file(path); return }
+    if path_is_dir(path) {
+        for name in list_dir(path) { cleanup(join_path(path,name)) }
+        os_rmdir(path)
+    } else { delete_file(path) }
+}

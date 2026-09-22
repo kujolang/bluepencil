@@ -1,0 +1,42 @@
+from src.common import get, canonical_json
+from src.domain import DIMENSIONS, validate_command
+from src.storage import load_record
+
+export func report_page(listing) {
+    mut types := {}; mut verdicts := {}; mut blockers := 0; mut invalid := 0
+    for record in listing["records"] {
+        kind := get(record,"record_type","unknown")
+        types[kind] = get(types,kind,0) + 1
+        payload := get(record,"payload",null)
+        if kind == "review" {
+            if validate_command("review",payload,null) != "" { invalid = invalid + 1 }
+            else {
+                verdict := payload["verdict"]
+                verdicts[verdict] = get(verdicts,verdict,0) + 1
+                blockers = blockers + len(get(payload,"blocking_findings",[]))
+            }
+        }
+    }
+    listing["page_summary"] = {"records":len(listing["records"]),"record_types":types,"verdicts":verdicts,"blocking_findings":blockers,"invalid_reviews":invalid,"scope":"this_page"}
+    return listing
+}
+
+export func compare_judgments(state, left_id, right_id) {
+    if left_id == "" || right_id == "" || left_id == right_id { return {"ok":false,"code":"ids_required","error":"disagreements requires two distinct review IDs"} }
+    left := load_record(state,left_id); if !left["ok"] { return left }
+    right := load_record(state,right_id); if !right["ok"] { return right }
+    left_record := left["value"]; right_record := right["value"]
+    if get(left_record,"record_type","") != "review" || get(right_record,"record_type","") != "review" { return {"ok":false,"code":"review_required","error":"disagreement comparison requires review records"} }
+    a := get(left_record,"payload",null); b := get(right_record,"payload",null)
+    if validate_command("review",a,null) != "" || validate_command("review",b,null) != "" { return {"ok":false,"code":"invalid_review","error":"review payload is invalid"} }
+    if a["artifact_id"] != b["artifact_id"] { return {"ok":false,"code":"artifact_mismatch","error":"reviews must refer to the same artifact identity"} }
+    mut differences := []
+    for dimension in DIMENSIONS {
+        if a["dimensions"][dimension] != b["dimensions"][dimension] { differences = push(differences,{"dimension":dimension,"left":a["dimensions"][dimension],"right":b["dimensions"][dimension]}) }
+    }
+    left_blockers := get(a,"blocking_findings",[]); right_blockers := get(b,"blocking_findings",[])
+    blockers_equal := canonical_json(left_blockers) == canonical_json(right_blockers)
+    verdicts_equal := a["verdict"] == b["verdict"]
+    agrees := len(differences) == 0 && blockers_equal && verdicts_equal
+    return {"ok":true,"value":{"left_id":left_id,"right_id":right_id,"artifact_id":a["artifact_id"],"left_reviewer":a["reviewer_id"],"right_reviewer":b["reviewer_id"],"left_rubric":a["rubric_version"],"right_rubric":b["rubric_version"],"agrees":agrees,"dimension_differences":differences,"left_verdict":a["verdict"],"right_verdict":b["verdict"],"left_blockers":left_blockers,"right_blockers":right_blockers,"blockers_equal":blockers_equal}}
+}
