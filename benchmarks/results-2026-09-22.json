@@ -1,0 +1,260 @@
+{
+  "baseline_commit": "275fbbf",
+  "measurements": [
+    {
+      "fixture_records": 1001,
+      "implementation": "baseline",
+      "samples": [
+        {
+          "peak_rss_bytes": 33218560,
+          "records": 1000,
+          "retained_bytes": null,
+          "truncated": true,
+          "wall_ms": 3919.135632,
+          "warnings": 0
+        },
+        {
+          "peak_rss_bytes": 30236672,
+          "records": 1000,
+          "retained_bytes": null,
+          "truncated": true,
+          "wall_ms": 3890.971811,
+          "warnings": 0
+        },
+        {
+          "peak_rss_bytes": 33013760,
+          "records": 1000,
+          "retained_bytes": null,
+          "truncated": true,
+          "wall_ms": 3706.345338,
+          "warnings": 0
+        }
+      ],
+      "scenario": "normal"
+    },
+    {
+      "fixture_records": 1001,
+      "implementation": "enhanced",
+      "samples": [
+        {
+          "peak_rss_bytes": 31944704,
+          "records": 1000,
+          "retained_bytes": 256000,
+          "truncated": true,
+          "wall_ms": 4500.901145000001,
+          "warnings": 0
+        },
+        {
+          "peak_rss_bytes": 34639872,
+          "records": 1000,
+          "retained_bytes": 256000,
+          "truncated": true,
+          "wall_ms": 3440.025959,
+          "warnings": 0
+        },
+        {
+          "peak_rss_bytes": 32362496,
+          "records": 1000,
+          "retained_bytes": 256000,
+          "truncated": true,
+          "wall_ms": 3282.101311,
+          "warnings": 0
+        }
+      ],
+      "scenario": "normal"
+    },
+    {
+      "fixture_records": 1001,
+      "implementation": "baseline",
+      "samples": [
+        {
+          "peak_rss_bytes": 21090304,
+          "records": 0,
+          "retained_bytes": null,
+          "truncated": true,
+          "wall_ms": 3080.739882,
+          "warnings": 0
+        },
+        {
+          "peak_rss_bytes": 23572480,
+          "records": 0,
+          "retained_bytes": null,
+          "truncated": true,
+          "wall_ms": 3474.923063,
+          "warnings": 0
+        },
+        {
+          "peak_rss_bytes": 23699456,
+          "records": 0,
+          "retained_bytes": null,
+          "truncated": true,
+          "wall_ms": 3364.999405,
+          "warnings": 0
+        }
+      ],
+      "scenario": "sparse-filter"
+    },
+    {
+      "fixture_records": 1001,
+      "implementation": "enhanced",
+      "samples": [
+        {
+          "peak_rss_bytes": 24985600,
+          "records": 0,
+          "retained_bytes": 0,
+          "truncated": true,
+          "wall_ms": 3469.758869,
+          "warnings": 0
+        },
+        {
+          "peak_rss_bytes": 25333760,
+          "records": 0,
+          "retained_bytes": 0,
+          "truncated": true,
+          "wall_ms": 3437.832349,
+          "warnings": 0
+        },
+        {
+          "peak_rss_bytes": 25747456,
+          "records": 0,
+          "retained_bytes": 0,
+          "truncated": true,
+          "wall_ms": 3213.8920519999997,
+          "warnings": 0
+        }
+      ],
+      "scenario": "sparse-filter"
+    },
+    {
+      "fixture_records": 1001,
+      "implementation": "baseline",
+      "samples": [
+        {
+          "peak_rss_bytes": 25772032,
+          "records": 0,
+          "retained_bytes": null,
+          "truncated": true,
+          "wall_ms": 2402.3812829999997,
+          "warnings": 1000
+        },
+        {
+          "peak_rss_bytes": 23396352,
+          "records": 0,
+          "retained_bytes": null,
+          "truncated": true,
+          "wall_ms": 2344.492698,
+          "warnings": 1000
+        },
+        {
+          "peak_rss_bytes": 26169344,
+          "records": 0,
+          "retained_bytes": null,
+          "truncated": true,
+          "wall_ms": 2526.928211,
+          "warnings": 1000
+        }
+      ],
+      "scenario": "corrupt"
+    },
+    {
+      "fixture_records": 1001,
+      "implementation": "enhanced",
+      "samples": [
+        {
+          "peak_rss_bytes": 25436160,
+          "records": 0,
+          "retained_bytes": 0,
+          "truncated": true,
+          "wall_ms": 2287.0713710000005,
+          "warnings": 1000
+        },
+        {
+          "peak_rss_bytes": 26984448,
+          "records": 0,
+          "retained_bytes": 0,
+          "truncated": true,
+          "wall_ms": 2095.342717,
+          "warnings": 1000
+        },
+        {
+          "peak_rss_bytes": 25362432,
+          "records": 0,
+          "retained_bytes": 0,
+          "truncated": true,
+          "wall_ms": 2421.569437,
+          "warnings": 1000
+        }
+      ],
+      "scenario": "corrupt"
+    },
+    {
+      "fixture_records": 24,
+      "implementation": "baseline",
+      "samples": [
+        {
+          "peak_rss_bytes": 38789120,
+          "records": 24,
+          "retained_bytes": null,
+          "truncated": false,
+          "wall_ms": 369.321936,
+          "warnings": 0
+        },
+        {
+          "peak_rss_bytes": 38895616,
+          "records": 24,
+          "retained_bytes": null,
+          "truncated": false,
+          "wall_ms": 389.271998,
+          "warnings": 0
+        },
+        {
+          "peak_rss_bytes": 38985728,
+          "records": 24,
+          "retained_bytes": null,
+          "truncated": false,
+          "wall_ms": 399.8342909999999,
+          "warnings": 0
+        }
+      ],
+      "scenario": "maximum-size"
+    },
+    {
+      "fixture_records": 24,
+      "implementation": "enhanced",
+      "samples": [
+        {
+          "peak_rss_bytes": 21082112,
+          "records": 2,
+          "retained_bytes": 2080512,
+          "truncated": true,
+          "wall_ms": 62.614351000000006,
+          "warnings": 0
+        },
+        {
+          "peak_rss_bytes": 21065728,
+          "records": 2,
+          "retained_bytes": 2080512,
+          "truncated": true,
+          "wall_ms": 60.484787,
+          "warnings": 0
+        },
+        {
+          "peak_rss_bytes": 21450752,
+          "records": 2,
+          "retained_bytes": 2080512,
+          "truncated": true,
+          "wall_ms": 68.031661,
+          "warnings": 0
+        }
+      ],
+      "scenario": "maximum-size"
+    }
+  ],
+  "recorded_at": "2026-09-22T15:56:54Z",
+  "runtime": "/Users/robertdevore/2026/Kujolang/kujo-repos/kujo-bluepencil-io/target/release/kujo",
+  "schema_version": "1.0.0",
+  "runtime_commit": "ca6f9e70af971884af336ae31f2c170320170add",
+  "runtime_note": "6116654 adds test-only feature guards; executable logic is unchanged.",
+  "application_commit": "60d2f2d",
+  "platform": "macOS-26.6.2-x86_64-i386-64bit"
+}

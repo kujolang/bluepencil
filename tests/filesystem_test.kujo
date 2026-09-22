@@ -17,13 +17,18 @@ check(rejects_read(outside + "/secret.txt/child"),"regular file cannot be an anc
 func short_read(path) { try { read_text(path,2); return false } except error { return true } }
 check(short_read(outside + "/secret.txt"),"same-handle byte limit")
 linked := link_directory(path_absolute(outside),inside + "/linked")
+check(linked.exitcode == 0,"symlink or junction fixture created")
 if linked.exitcode == 0 {
     check(rejects_read(inside + "/linked/secret.txt"),"ancestor symlink read rejected")
     check(rejects_write(inside + "/linked/secret.txt"),"ancestor symlink write rejected")
     check(!dispatch("init",parse_args(["--state",inside + "/linked/new-state"],[]))["ok"],"state beneath symlink rejected")
+    write_text(outside + "/payload.json",read_text("fixtures/core.json",1048576),false)
+    check(!dispatch("review",parse_args(["--state",root + "/state","--input",inside + "/linked/payload.json","--actor","fixture","--dry-run"],["dry-run"]))["ok"],"CLI input ancestor rejected")
+    check(!dispatch("review",parse_args(["--state",root + "/state","--input","fixtures/core.json","--path",inside + "/linked/secret.txt","--actor","fixture","--dry-run"],["dry-run"]))["ok"],"CLI artifact ancestor rejected")
+    check(!dispatch("export",parse_args(["--state",root + "/state","--output",inside + "/linked/secret.txt","--force"],["force"]))["ok"],"CLI forced output ancestor rejected")
     check(read_text(outside + "/secret.txt",100) == "outside sentinel","outside content preserved")
     dangling := link_directory(path_absolute(root) + "/missing",inside + "/dangling")
-    if dangling.exitcode == 0 { check(rejects_write(inside + "/dangling/created"),"dangling ancestor rejected"); delete_file(inside + "/dangling") }
+    if dangling.exitcode == 0 { check(rejects_write(inside + "/dangling/created"),"dangling ancestor rejected"); cleanup(inside + "/dangling") }
 }
 write_text(inside + "/review-a.json","{}",false); write_text(inside + "/review-a-b.json","{}",false)
 page := directory_page(inside,"",".json",1)
