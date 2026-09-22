@@ -38,6 +38,19 @@ and [workflow contracts](docs/WORKFLOWS.md).
 
 ## Quick install
 
+Download the archive and matching `.sha256` file for your platform from the
+[0.3.0-rc.1 release](https://github.com/kujolang/bluepencil/releases/tag/v0.3.0-rc.1).
+The Linux x64, macOS ARM64, and Windows x64 bundles include the exact required
+Kujo runtime. Verify the archive before extracting it: `sha256sum -c FILE.sha256`
+on Linux, `shasum -a 256 -c FILE.sha256` on macOS, or compare
+`Get-FileHash FILE.tar.gz -Algorithm SHA256` with the checksum file in PowerShell.
+Then run `bin/bluepencil` (Windows: `bin\bluepencil.cmd`) from the extracted
+folder. Keep the full folder together. Linux installation is tested on Ubuntu
+24.04; platform CI is additional compatibility evidence, not support for every
+OS release. These are checksummed release candidates, not signed installers.
+
+For a source checkout with an independently supplied compatible runtime:
+
 ```bash
 git clone https://github.com/kujolang/bluepencil.git
 cd bluepencil
