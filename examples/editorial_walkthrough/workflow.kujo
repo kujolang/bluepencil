@@ -1,0 +1,31 @@
+from src.core import dispatch
+from src.args import parse_args
+
+func options(state, extra) {
+    mut values := ["--state",state,"--actor","walkthrough-reviewer","--timestamp","2026-09-22T12:00:00Z"]
+    for value in extra { values = push(values,value) }
+    return parse_args(values,["json"])
+}
+
+export func run_walkthrough(state) {
+    initialized := dispatch("init",options(state,[]))
+    if !initialized["ok"] { return initialized }
+    folder := "examples/editorial_walkthrough/"
+    for item in [["review","review-blocked","blocked.json"],["review","review-revised","revised.json"],["calibrate","calibration-example","calibration.json"]] {
+        result := dispatch(item[0],options(state,["--id",item[1],"--input",folder + item[2]]))
+        if !result["ok"] { return result }
+    }
+    comparison := dispatch("disagreements",options(state,["--id","review-blocked","--other-id","review-revised"]))
+    if !comparison["ok"] { return comparison }
+    score := dispatch("calibration-score",options(state,["--input",folder + "blind_run.json"]))
+    if !score["ok"] { return score }
+    report := dispatch("report",options(state,[]))
+    if !report["ok"] { return report }
+    audit := dispatch("audit",options(state,[]))
+    if !audit["ok"] { return audit }
+    exported := dispatch("export",options(state,["--output",state + "/export.json"]))
+    if !exported["ok"] { return exported }
+    records := parse_json(read_file(state + "/export.json"))["data"]["records"]
+    summary := {"reviews":report["value"]["page_summary"]["record_types"]["review"],"calibrations":report["value"]["page_summary"]["record_types"]["calibration_run"],"dimension_disagreements":len(comparison["value"]["dimension_differences"]),"initial_blockers":len(comparison["value"]["left_blockers"]),"revised_blockers":len(comparison["value"]["right_blockers"]),"calibration_matches":score["value"]["matches"],"audit_verified":audit["value"]["verified"],"exported_records":len(records)}
+    return {"ok":true,"state":state,"export":state + "/export.json","summary":summary}
+}

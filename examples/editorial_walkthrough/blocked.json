@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "reviewer_id": "fixture-reviewer",
+  "artifact_id": "walkthrough-article",
+  "rubric_version": "publishing-house-quality-rubric-v1",
+  "verdict": "blocked",
+  "dimensions": {
+    "consequence": "UNVERIFIED",
+    "distinctiveness": "UNVERIFIED",
+    "insight": "UNVERIFIED",
+    "defensibility": "UNVERIFIED",
+    "craft": "UNVERIFIED",
+    "brand_integrity": "UNVERIFIED",
+    "format_fidelity": "UNVERIFIED",
+    "strategic_purpose": "UNVERIFIED"
+  },
+  "blocking_findings": [
+    {
+      "code": "CLAIM_UNSUPPORTED",
+      "message": "Add source evidence for the result claim."
+    }
+  ],
+  "provenance": [
+    {
+      "kind": "fixture",
+      "source": "fixtures/core.json"
+    }
+  ]
+}

@@ -25,13 +25,12 @@ reconciles record bytes against creation events. Review
 the [September readiness assessment and next-session worklist](docs/READINESS_REVIEW_2026-09-22.md)
 before relying on it for regulated or shared-host workflows.
 
-`src/hardening.kujo` exposes tested library helpers for calibration scores,
-HMAC bundle authentication, format rule lists, declared adapter/accessibility
-receipts, and in-memory verdict counts. These are not wired into dedicated CLI
-workflows. Receipt declarations do not independently prove offline execution,
-redaction, accessibility compliance, or editorial quality. The report helper
-accepts an existing array; it is not a streaming file reader or a measured
-performance benchmark.
+Evaluation commands provide blind calibration scoring/trends, trusted-key HMAC
+bundle verification and upgrade checks, deterministic format checks, and
+adapter/accessibility receipt checks. Receipt declarations do not independently
+prove offline execution, redaction, accessibility compliance, or editorial
+quality. See the [executable editorial walkthrough](docs/EDITORIAL_WALKTHROUGH.md)
+and [workflow contracts](docs/WORKFLOWS.md).
 
 ## Quick install
 
@@ -68,10 +67,14 @@ bluepencil report --limit 100 --json
 | `compare` | Compare two immutable reviews without flattening disagreement. |
 | `calibrate` | Record a blind calibration judgment with reviewer and rubric identity. |
 | `style`, `brand`, `claims`, `format`, `accessibility` | Record focused deterministic or semantic findings. |
-| `disagreements`, `report` | List stored records (specialized analysis is in progress). |
+| `disagreements` | Compare two review judgments, dimensions, and blockers using `--id` and `--other-id`. |
+| `report` | List records with explicit per-page type, verdict, and blocker totals. |
 | `history`, `audit` | Read creation events and reconcile record/event integrity. |
 | `transaction`, `recover` | Inspect an immutable intent and resume exact-byte publication using its owner token. |
 | `validate`, `show`, `export` | Verify and emit portable review evidence. |
+| `calibration-score`, `calibration-trend` | Score supplied blind judgments and ordered run trends. |
+| `bundle-verify`, `bundle-upgrade` | Authenticate a bundle using an explicit trusted key; check version compatibility. |
+| `format-check`, `accessibility-check`, `adapter-check` | Evaluate supplied content rules or validate clearly labeled declarations. |
 | `doctor`, `version` | Report health and compatibility. |
 
 Allowed verdicts are `pass`, `pass_with_queries`, `revise`, `blocked`, `reject`,

@@ -1,0 +1,6 @@
+from examples.editorial_walkthrough.workflow import run_walkthrough
+mut state := "/tmp/bluepencil-walkthrough-" + uuid_v4()
+if len(args()) > 0 { state = args()[0] }
+result := run_walkthrough(state)
+print(to_json_pretty(result))
+if !result["ok"] { exit(1) }

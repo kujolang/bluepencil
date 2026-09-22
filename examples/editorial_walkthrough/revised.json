@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0.0",
+  "reviewer_id": "second-reviewer",
+  "artifact_id": "walkthrough-article",
+  "rubric_version": "publishing-house-quality-rubric-v1",
+  "verdict": "pass",
+  "dimensions": {
+    "consequence": "STRONG",
+    "distinctiveness": "STRONG",
+    "insight": "STRONG",
+    "defensibility": "STRONG",
+    "craft": "STRONG",
+    "brand_integrity": "STRONG",
+    "format_fidelity": "STRONG",
+    "strategic_purpose": "STRONG"
+  },
+  "blocking_findings": [],
+  "provenance": [
+    {
+      "kind": "fixture",
+      "source": "fixtures/core.json"
+    }
+  ],
+  "evidence": [
+    {
+      "source": "fixture/research-note",
+      "claim": "The example is illustrative, not a performance claim."
+    }
+  ]
+}

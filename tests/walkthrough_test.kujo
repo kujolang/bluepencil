@@ -1,0 +1,14 @@
+from examples.editorial_walkthrough.workflow import run_walkthrough
+from tests.support import cleanup
+from src.common import canonical_json
+root := "/tmp/bluepencil-walkthrough-test-" + uuid_v4()
+result := run_walkthrough(root)
+if !result["ok"] { eprint(to_json(result)); cleanup(root); exit(1) }
+expected := parse_json(read_file("examples/editorial_walkthrough/expected.json"))
+if canonical_json(result["summary"]) != canonical_json(expected) { eprint("walkthrough output drift"); cleanup(root); exit(1) }
+schema := parse_json(read_file("schemas/record.schema.json"))
+for record in parse_json(read_file(result["export"]))["data"]["records"] {
+    if !json_schema_validate(record,schema)["valid"] { eprint("walkthrough record schema mismatch"); cleanup(root); exit(1) }
+}
+cleanup(root)
+print("4 passed; 0 failed")

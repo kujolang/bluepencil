@@ -98,17 +98,17 @@ Priorities reflect local data integrity before broader product features.
   bounded iterator/index strategy, and truly incremental report/export output.
   Benchmark normal, sparse-filter, corrupt, and maximum-size corpora with wall
   time and peak RSS; keep pagination stable and measure before claiming gains.
-- [ ] **BP-05: Implement distinct report/history/disagreement commands.**
+- [x] **BP-05: Implement distinct report/history/disagreement commands.**
   `profile.list_commands` routes all three to the same record listing.
   Define report totals, pairwise disagreement semantics, and actual event
   history. Test pagination, record types, missing peers, and blocker preservation.
-- [ ] **BP-06: Integrate hardening helpers as real workflows.** The CLI does not
+- [x] **BP-06: Integrate hardening helpers as real workflows.** The CLI does not
   import `src.hardening`. Specify commands and fixtures for blind scoring,
   rubric bundle verification, format rule evaluation, and accessibility evidence.
   Receipts must distinguish declarations from independently observed checks.
   HMAC is shared-secret authentication, not public-key signing; define key trust
   and rotation before presenting signed bundle distribution.
-- [ ] **BP-07: Tighten typed contracts.** Config values have key checks but lack
+- [x] **BP-07: Tighten typed contracts.** Config values have key checks but lack
   complete type checks; `validate_record` accepts non-mutation commands and
   incompletely shaped artifact fields; finding array members are not validated.
   Bundle compatibility accepts missing/poorly formed versions. Add negative
@@ -121,11 +121,11 @@ Priorities reflect local data integrity before broader product features.
 
 ### P3 — release presentation and maintainability
 
-- [ ] **BP-09: Add an editorial walkthrough.** Show one complete review,
+- [x] **BP-09: Add an editorial walkthrough.** Show one complete review,
   comparison, blocker resolution, calibration, and exported evidence using
   versioned examples and expected CLI output. Link the Kujo language concepts
   demonstrated by real code. Keep claims synchronized through executable docs.
-- [ ] **BP-10: Improve maintainability and test hygiene.** Expand compressed
+- [x] **BP-10: Improve maintainability and test hygiene.** Expand compressed
   domain/hardening code into readable functions, standardize error envelopes,
   remove unused helpers/imports, and clean temporary state in all old tests.
   Retain public entrypoint compatibility and add only behavior-focused tests.
@@ -138,3 +138,11 @@ expansion should build on those storage guarantees rather than obscure them.
 BP-01: `src/audit.kujo`, `audit` CLI, and `tests/audit_test.kujo` (12 passing assertions) reconcile exact persisted bytes, event identities, duplicates, missing/orphan events, malformed events, and legitimate 0.1.0 records. Reports fail when coverage is incomplete. Local checksum reconciliation does not establish an external trust anchor.
 
 BP-02: immutable transaction intents (`src/transaction.kujo`) replace transient locks for new writes. `transaction --id` exposes owner/completion; `recover --id --owner` idempotently publishes only exact original bytes. Legacy locks are never stolen. `tests/transaction_test.kujo` passes 24 checks covering interruption after intent/record/event publication, incorrect owner, duplicate creation, incomplete audit, record/event conflicts, and safe repeat recovery. No recovery path deletes a record or clears an age-based lock. Power-loss durability still depends on filesystem/runtime atomic-write guarantees.
+
+BP-05/BP-06: report page totals, actual event-history pagination, blocker-preserving pairwise disagreements, blind scoring/trends, trusted-key bundle verification, upgrade checks, four format evaluators, and explicit declaration-only adapter/accessibility checks are CLI-accessible. `tests/workflows_test.kujo` passes 15 checks; `docs/WORKFLOWS.md` defines supplied-content and key rotation/revocation contracts.
+
+BP-07: typed configuration, mutation-only records, artifact structure, finding entries, bundle versions/downgrades, and helper inputs are rejected at their boundaries. `tests/contracts_test.kujo` passes 27 checks including native JSON Schema validation of actual current and legacy records. Schemas preserve safe unknown metadata; runtime checks additionally enforce Gregorian dates, hashes, and secret-shaped fields.
+
+BP-09: the versioned editorial walkthrough and expected summary are tested through `tests/walkthrough_test.kujo` (4 checks including three exported record schemas). See `docs/EDITORIAL_WALKTHROUGH.md` and `examples/editorial_walkthrough/`.
+
+BP-10: domain/hardening/profile code is expanded, helper failures now carry error codes, unused storage helpers/imports are removed, and the original filesystem test suites clean their own temporary trees using a symlink-aware fixture cleanup helper. The public entrypoint remains intact. The combined gate passes 151 assertions across eleven suites, with JSON/schema, CLI, and repository hygiene checks.

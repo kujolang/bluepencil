@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added exact-byte audit reconciliation and immutable transaction intent inspection/recovery.
+- Added distinct report, history, and disagreement behavior plus seven offline evaluation commands.
+- Tightened typed contracts and record schemas, added trusted-key lifecycle checks and deterministic format evaluation.
+- Added an executable editorial walkthrough and cleanup for legacy test fixtures.
+
 - Made record dry runs and invalid submissions side-effect-free.
 - Preserved flags on `--version`, rejected missing option values and oversized integers, and validated Gregorian calendar dates.
 - Added bounded record scan budgets and continuation cursors; incomplete validation/health scans now fail explicitly.
