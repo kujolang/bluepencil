@@ -23,7 +23,8 @@ directory with cooperating writers. There is no authenticated multi-user
 service. Immutable transaction intents support explicit recovery, and `audit`
 reconciles record bytes against creation events. Review
 the [September readiness assessment and next-session worklist](docs/READINESS_REVIEW_2026-09-22.md)
-before relying on it for regulated or shared-host workflows.
+before relying on it for regulated or shared-host workflows. Further product
+directions are in the [next-session worklist](docs/NEXT_SESSION_2026-09-22.md).
 
 Evaluation commands provide blind calibration scoring/trends, trusted-key HMAC
 bundle verification and upgrade checks, deterministic format checks, and
@@ -117,7 +118,8 @@ reserve an ID or guarantee a subsequent write can succeed.
 
 The vendored corpus includes 18 blind A/B pairs spanning every role. Tests bind
 its manifest checksum and distinguish structural integrity from semantic
-judgment. Run the complete local/CI gate:
+judgment. Measured scan behavior and memory tradeoffs are documented in
+[Performance](docs/PERFORMANCE.md). Run the complete local/CI gate:
 
 ```bash
 bash scripts/validate.sh

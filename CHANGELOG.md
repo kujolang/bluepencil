@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Confined state, input, output, artifact, and directory operations with descriptor-relative I/O; forced exports protect managed evidence, including case aliases.
+- Added 2 MiB record pages, bounded native enumeration, and JSONL export/report streams with explicit completion receipts.
+- Measured first-page latency and peak RSS against the previous implementation; documented workload-dependent tradeoffs.
+- Added the Windows launcher, pinned runtime probe/platform matrix, real concurrent writer/process-kill checks, and an offline Publishing House receipt fixture.
+- Withdrew the unsupported Kujo 1.0.1 minimum; this development revision requires the exact source runtime in `runtime-requirements.json`.
+
 - Added exact-byte audit reconciliation and immutable transaction intent inspection/recovery.
 - Added distinct report, history, and disagreement behavior plus seven offline evaluation commands.
 - Tightened typed contracts and record schemas, added trusted-key lifecycle checks and deterministic format evaluation.
@@ -10,8 +16,8 @@
 - Made record dry runs and invalid submissions side-effect-free.
 - Preserved flags on `--version`, rejected missing option values and oversized integers, and validated Gregorian calendar dates.
 - Added bounded record scan budgets and continuation cursors; incomplete validation/health scans now fail explicitly.
-- Replaced recursive-directory locking with exclusive atomic lock files and disabled overwrite for new records/history and unforced exports.
-- Made the launcher portable, aligned the record schema with legacy compatibility, and clarified library versus CLI capabilities.
+- Reserved new records through immutable no-overwrite transaction intents; legacy lock files are never stolen by age.
+- Made launchers portable, aligned record schemas with legacy compatibility, and documented CLI workflow contracts.
 - Added regression coverage and the September 2026 prioritized readiness worklist.
 
 - Standardized README badge ordering and repository-local artifact ignores.
