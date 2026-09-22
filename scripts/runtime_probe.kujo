@@ -7,7 +7,9 @@ try {
     text := read_file_beneath(root,"records/probe.json",2)
     schema := json_schema_validate(parse_json(text),{"type":"object"})
     digest := digest_file_beneath(root,"records/probe.json",67108864)
-    supported = digest["sha256"] == sha256("{}") && digest["bytes"] == 2 && len(page["names"]) == 1 && schema["valid"] && byte_length("é") == 2
+    // Check availability without blocking on an interactive stdin producer.
+    // Exact stdin bounds and UTF-8 behavior are exercised by native conformance.
+    supported = type(read_stdin) == "function" && type(hmac_sha256_verify) == "function" && digest["sha256"] == sha256("{}") && digest["bytes"] == 2 && len(page["names"]) == 1 && schema["valid"] && byte_length("é") == 2
 } except error { supported = false }
 cleanup(root)
 print(to_json({"supported":supported,"required_contract":"bluepencil-confined-adapter-v2"}))
