@@ -73,6 +73,7 @@ bluepencil report --limit 100 --json
 | `style`, `brand`, `claims`, `format`, `accessibility` | Record focused deterministic or semantic findings. |
 | `disagreements` | Compare two review judgments, dimensions, and blockers using `--id` and `--other-id`. |
 | `report` | List records with explicit per-page type, verdict, and blocker totals. |
+| `checkpoint-create`, `checkpoint-verify` | Bind state to an independently retained receipt and verify restored or current state. |
 | `history`, `audit` | Read creation events and reconcile record/event integrity. |
 | `transaction`, `recover` | Inspect an immutable intent and resume exact-byte publication using its owner token. |
 | `validate`, `show`, `export` | Verify and emit portable review evidence. |

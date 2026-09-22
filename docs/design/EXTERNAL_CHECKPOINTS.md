@@ -1,6 +1,6 @@
 # Independent audit checkpoints
 
-Status: implementation contract for the next-session worklist.
+Status: implemented by `checkpoint-create` and `checkpoint-verify`; verification tests are in `tests/checkpoints_test.kujo`.
 
 An optional checkpoint binds the exact bytes of records, creation events, and
 transaction intents to an independently retained digest. It supplements the
@@ -19,12 +19,12 @@ ordered file identities, byte counts, and SHA-256 values using a versioned,
 length-delimited accumulator. Metadata is included. Creation repeats the scan
 and fails if the digest changes. Operators must quiesce writers during capture;
 two equal observations are not a linearizable snapshot against an adversary.
-No partial checkpoint is published. The completed JSON receipt is bounded and
+Capture inherits the current complete-audit budget (1,000 records/events and a 2 MiB record page); exceeding it fails explicitly. No partial checkpoint is published. The completed JSON receipt is bounded and
 written atomically without replacement.
 
 Verification reads an explicitly supplied checkpoint, validates its version and
 shape, and recomputes the accumulator from the chosen state. It rejects changed,
-missing, or added managed files and reports the expected/observed digest. A
+missing, or added managed `.json` files and reports the expected/observed digest. A
 coordinated rewrite of record, event, and intent must fail verification against
 a checkpoint retained before that rewrite, even if local audit passes.
 
@@ -38,3 +38,20 @@ A future signature mode would require a separately approved custody design:
 offline private keys, pinned public-key identity, rotation and revocation history,
 and explicit verification policy. Shared-secret HMAC is not a substitute for
 publicly verifiable independent signatures.
+
+## Usage
+
+Provision the custody directory separately, then quiesce writers:
+
+```bash
+bluepencil checkpoint-create --state .bluepencil \
+  --output /independent-custody/review-checkpoint.json \
+  --custodian archive-operator --json
+bluepencil checkpoint-verify --state /restored/bluepencil \
+  --checkpoint /independent-custody/review-checkpoint.json --json
+```
+
+A passing result establishes byte identity to the supplied receipt. It does not
+authenticate the custodian's identity or establish that the receipt was protected.
+Managed evidence means metadata plus `.json` files in records/history/transactions;
+locks, directory markers, exports, and other auxiliary files are not checkpointed.

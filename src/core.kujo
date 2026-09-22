@@ -1,3 +1,4 @@
+from src.checkpoints import create_checkpoint, verify_checkpoint
 from src.filesystem import read_text, write_text, digest_file, rooted_path
 from src.args import parse_args
 from src.streaming import stream_records
@@ -147,6 +148,8 @@ func dispatch_inner(command, parsed) {
     if len(parsed["errors"]) > 0 { return {"ok": false, "code": "invalid_arguments", "error": parsed["errors"][0]} }
     p := profile(); config_result := load_config(flag(parsed, "config", "")); if !config_result["ok"] { return config_result }; config := config_result["value"]
     state := setting(parsed, config, "state", p["default_state"])
+    if command == "checkpoint-create" { return create_checkpoint(state,flag(parsed,"output",""),flag(parsed,"custodian","")) }
+    if command == "checkpoint-verify" { return verify_checkpoint(state,flag(parsed,"checkpoint","")) }
     if command == "init" { return initialize(state, {"schema_version": "1.0.0", "tool": p["slug"], "tool_version": p["version"], "contract_version": p["contract_version"], "created_at": now_utc()}) }
     if command == "export-stream" || command == "report-stream" {
         if flag(parsed,"output","") != "" { return {"ok":false,"code":"stdout_required","error":"streaming uses JSONL stdout; redirect it and require the final completion receipt"} }
@@ -242,7 +245,7 @@ export func main(argv) {
     if !has(p["commands"], command) { eprint(p["name"] + ": unknown command: " + command); return 2 }
     parsed := parse_args(command_tokens(argv, command), ["json", "dry-run", "force"])
     if len(parsed["errors"]) > 0 { eprint(p["name"] + ": " + parsed["errors"][0]); return 2 }
-    allowed := ["key-file", "owner", "state", "config", "input", "id", "other-id", "actor", "timestamp", "path", "type", "after", "limit", "output", "json", "dry-run", "force"]
+    allowed := ["checkpoint", "custodian", "key-file", "owner", "state", "config", "input", "id", "other-id", "actor", "timestamp", "path", "type", "after", "limit", "output", "json", "dry-run", "force"]
     for name in keys(parsed["flags"]) { if !has(allowed, name) { eprint(p["name"] + ": unknown flag --" + name); return 2 } }
     if len(parsed["positionals"]) > 0 { eprint(p["name"] + ": unexpected positional argument: " + parsed["positionals"][0]); return 2 }
     result := dispatch(command, parsed)

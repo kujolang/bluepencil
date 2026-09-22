@@ -1,0 +1,70 @@
+from src.filesystem import rooted_path, read_text, write_text, directory_page, digest_file
+from src.common import get, canonical_json, valid_timestamp
+from src.audit import audit_state
+from src.storage import validate_state_path
+
+func failure(code, message) { return {"ok":false,"code":code,"error":message} }
+
+func absorb(previous, name, digest) {
+    return sha256(previous + "\n" + canonical_json([name,digest["bytes"],digest["sha256"]]))
+}
+
+// Hash logical names and exact bytes. Host paths never enter the accumulator,
+// so the same checkpoint can verify a restored copy in a different directory.
+export func state_digest(state) {
+    policy := validate_state_path(state)
+    if policy != "" { return failure("unsafe_state",policy) }
+    mut chain := sha256("bluepencil.independent-checkpoint/1.0.0")
+    metadata := digest_file(join_path(state,"metadata.json"),65536)
+    chain = absorb(chain,"metadata.json",metadata)
+    mut count := 1; mut bytes := metadata["bytes"]
+    for spec in [["records",1048576],["history",65536],["transactions",3145728]] {
+        directory := spec[0]; mut cursor := ""
+        loop {
+            page := directory_page(join_path(state,directory),cursor,".json",1000)
+            for name in page["names"] {
+                digest := digest_file(join_path(join_path(state,directory),name),spec[1])
+                chain = absorb(chain,directory + "/" + name,digest)
+                count = count + 1; bytes = bytes + digest["bytes"]
+            }
+            if !page["truncated"] { break }
+            if page["next_cursor"] == cursor { return failure("checkpoint_stalled","checkpoint scan cannot advance") }
+            cursor = page["next_cursor"]
+        }
+    }
+    return {"ok":true,"value":{"state_sha256":chain,"files":count,"bytes":bytes}}
+}
+
+export func create_checkpoint(state, output, custodian) {
+    if type(output) != "string" || output == "" { return failure("output_required","checkpoint creation requires an external --output path") }
+    if type(custodian) != "string" || trim(custodian) == "" || len(custodian) > 256 || regex_match(custodian,"[\\x00-\\x1F\\x7F]") { return failure("custodian_required","name the independent checkpoint custodian") }
+    source := rooted_path(path_absolute(state)); lexical_target := rooted_path(output)
+    parent := dirname(lexical_target["root"] + lexical_target["relative"])
+    if !path_is_dir(parent) { return failure("custody_directory_required","provision the external custody directory before creating a checkpoint") }
+    canonical_parent := rooted_path(path_absolute(parent))
+    target := rooted_path(canonical_parent["root"] + canonical_parent["relative"] + "/" + basename(output))
+    if to_lower(source["root"]) == to_lower(target["root"]) && (to_lower(source["relative"]) == to_lower(target["relative"]) || starts_with(to_lower(target["relative"]),to_lower(source["relative"]) + "/")) { return failure("independent_location_required","checkpoint must be outside the source state tree") }
+    audited := audit_state(state)
+    if !audited["ok"] { return failure("checkpoint_audit_failed","checkpoint requires a complete successful local audit and quiesced writers") }
+    first := state_digest(state); if !first["ok"] { return first }
+    second := state_digest(state); if !second["ok"] { return second }
+    if canonical_json(first["value"]) != canonical_json(second["value"]) { return failure("state_changed","state changed during checkpoint capture; quiesce writers and retry") }
+    receipt := {"schema_name":"bluepencil.independent-checkpoint","schema_version":"1.0.0","algorithm":"sha256-chain-v1","created_at":now_utc(),"source_state":source["root"] + source["relative"],"custodian":custodian,"custody_verified":false,"state_sha256":first["value"]["state_sha256"],"files":first["value"]["files"],"bytes":first["value"]["bytes"]}
+    try { write_text(output,to_json(receipt) + "\n",false) }
+    except error { return failure("checkpoint_write_failed","checkpoint cannot be published without replacement") }
+    return {"ok":true,"value":{"checkpoint":output,"receipt":receipt,"trust_boundary":"custodian must independently retain and authenticate this receipt"}}
+}
+
+export func verify_checkpoint(state, path) {
+    mut receipt := null
+    try { receipt = parse_json(read_text(path,16384)) }
+    except error { return failure("invalid_checkpoint","checkpoint is unreadable or malformed") }
+    if type(receipt) != "dict" { return failure("invalid_checkpoint","checkpoint must be an object") }
+    if get(receipt,"schema_name","") != "bluepencil.independent-checkpoint" || get(receipt,"schema_version","") != "1.0.0" || get(receipt,"algorithm","") != "sha256-chain-v1" { return failure("invalid_checkpoint","unsupported checkpoint contract or algorithm") }
+    expected_hash := get(receipt,"state_sha256",null)
+    if type(expected_hash) != "string" || !regex_match(expected_hash,"^[a-f0-9]{64}$") || type(get(receipt,"files",null)) != "int" || receipt["files"] < 1 || type(get(receipt,"bytes",null)) != "int" || receipt["bytes"] < 0 || !valid_timestamp(get(receipt,"created_at",null)) || type(get(receipt,"custodian",null)) != "string" || trim(receipt["custodian"]) == "" || get(receipt,"custody_verified",null) != false { return failure("invalid_checkpoint","checkpoint fields are invalid or overstate custody verification") }
+    observed := state_digest(state); if !observed["ok"] { return observed }
+    matches := observed["value"]["state_sha256"] == expected_hash && observed["value"]["files"] == receipt["files"] && observed["value"]["bytes"] == receipt["bytes"]
+    if !matches { return {"ok":false,"code":"checkpoint_mismatch","error":"state differs from the independently retained checkpoint","value":{"verified":false,"expected":expected_hash,"observed":observed["value"]["state_sha256"]}} }
+    return {"ok":true,"value":{"verified":true,"state_sha256":expected_hash,"files":receipt["files"],"custodian":receipt["custodian"],"trust_boundary":"verification assumes independently authenticated checkpoint custody"}}
+}
