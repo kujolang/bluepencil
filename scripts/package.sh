@@ -6,6 +6,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${BUNDLE_PLATFORM:?set BUNDLE_PLATFORM to the native platform name}"
 case "$BUNDLE_PLATFORM" in linux-x64|linux-arm64|macos-x64|macos-arm64|windows-x64) ;; *) exit 2 ;; esac
 cd "$ROOT"
+if ! git diff --quiet HEAD -- . || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+  printf 'Packaging requires a clean tracked and untracked source checkout.\n' >&2
+  exit 2
+fi
 revision="$(git rev-parse HEAD)"
 name="bluepencil-${revision:0:12}-$BUNDLE_PLATFORM"
 mkdir -p dist

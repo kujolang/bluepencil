@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 - 2026-09-22
+
+- Promote the supported local CLI with five native platform bundles and versioned OS baselines.
+- Preserve legacy/RC records and add real-version upgrade, backup/restore and recovery evidence.
+- Verify public launchers in clean environments, including paths containing spaces.
+- Ship dependency inventories, notices and required source; record dependency/security assessment.
+- Retain the exact supported runtime pin and explicit isolated-consumer integration boundary.
+
 ## 0.3.0-rc.1 - 2026-09-22
 
 - Added independently retained audit checkpoints and verification of restored state.

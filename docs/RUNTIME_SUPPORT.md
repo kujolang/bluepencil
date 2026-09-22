@@ -39,7 +39,7 @@ vendored Publishing House schema and mirrors its request identity, artifact
 checksum, and no-publication-effect boundary. The schema's repository, exact
 revision, and checksum are in `fixtures/publishing_house/provenance.json`.
 The new `tests/operator_sandbox.kujo` additionally exercises the actual operator
-in disposable offline state; current candidate results are tracked in the
+in disposable offline state; results are tracked in the
 [next-session execution ledger](NEXT_SESSION_EXECUTION_2026-09-22.md).
 
 
@@ -66,7 +66,11 @@ fails the doctor test; use the pinned build rather than relying on its label.
 No full Kujo repository test-suite or power-loss guarantee is implied by these
 scoped runtime checks.
 
-The next-session branch also requires bounded `read_stdin`, streaming
-`digest_file_beneath`, and interpreter lexical-call isolation. The new pin is a
-candidate undergoing validation, not a released runtime. Artifact binding now
+The stable application also requires bounded `read_stdin`, streaming
+`digest_file_beneath`, and interpreter lexical-call isolation. BluePencil supports this exact bundled source pin; it is not interchangeable
+with an official runtime identified only by version label. Artifact binding now
 uses a 64 KiB streaming digest buffer and supports the documented 64 MiB bound.
+
+Stable distribution baselines are defined in [Supported environments](SUPPORTED_ENVIRONMENTS.md).
+The required upstream APIs were merged in Kujo PR #11; a merge alone does not
+establish that a previously published Kujo binary includes them.

@@ -61,3 +61,14 @@ failure without advancing to publication.
 The real consumer integration was exercised on macOS x64. The shell adapter
 requires a POSIX shell; the three-platform application matrix validates its
 Kujo receipt logic, not the external operator on every operating system.
+
+## Stable integration support
+
+The supported consumer integration uses the isolated wrapper in
+`scripts/verify_operator_sandbox.sh` with Python `-I`; the upstream public
+Publishing House launcher is not a supported substitute until its module-name
+shadowing issue is fixed and retested. Core BluePencil requires no Python.
+This optional external integration is verified on macOS x64 with the pinned
+consumer revision above; other consumer/OS combinations require their own
+sandbox acceptance. The receipt-validation logic remains part of every native
+application gate.

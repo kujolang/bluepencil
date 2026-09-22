@@ -1,4 +1,6 @@
 # Tool-local state
+# Exact pinned runtime checkout used by CI; never application source.
+/.runtime/
 .bluepencil/
 
 # Environment and secrets
