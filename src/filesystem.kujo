@@ -3,6 +3,9 @@
 export func rooted_path(path) {
     if type(path) != "string" || trim(path) == "" || len(path) > 4096 || regex_match(path,"[\\x00-\\x1F\\x7F]") { throw("invalid filesystem path") }
     mut absolute := replace_str(path,"\\","/")
+    // Windows canonicalize returns a verbatim drive prefix. Strip only this
+    // form; UNC and arbitrary device namespaces remain unsupported.
+    if starts_with(absolute,"//?/") && regex_match(substring(absolute,4,len(absolute)),"^[A-Za-z]:/") { absolute = substring(absolute,4,len(absolute)) }
     if starts_with(absolute,"//") { throw("UNC and device paths are not supported") }
     if !starts_with(absolute,"/") && !regex_match(absolute,"^[A-Za-z]:/") { absolute = replace_str(os_getcwd(),"\\","/") + "/" + absolute }
     // macOS system aliases are root-owned. Arbitrary user symlinks are not resolved.
@@ -15,10 +18,14 @@ export func rooted_path(path) {
     }
     mut root := "/"; mut remainder := substring(absolute,1,len(absolute))
     if regex_match(absolute,"^[A-Za-z]:/") { root = substring(absolute,0,3); remainder = substring(absolute,3,len(absolute)) }
+    windows_drive := regex_match(absolute,"^[A-Za-z]:/")
     mut parts := []
     for part in split(remainder,"/") {
         if part == ".." || contains(part,":") == 1 { throw("filesystem traversal or alternate stream rejected") }
-        if part != "" && part != "." { parts = push(parts,part) }
+        if part != "" && part != "." {
+            if windows_drive && (ends_with(part,".") || ends_with(part," ") || regex_match(to_upper(part),"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])([.]|$)")) { throw("Windows device names and trailing-dot/space aliases are rejected") }
+            parts = push(parts,part)
+        }
     }
     if len(parts) == 0 { throw("path must name a file or directory beneath the volume root") }
     return {"root":root,"relative":join(parts,"/")}

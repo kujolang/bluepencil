@@ -15,7 +15,9 @@ without following links, beneath a trusted volume root. Static checks reject
 linked state, input, output, and artifact components; the native operation
 enforces the boundary against concurrent ancestor replacement. Only known
 macOS root-owned `/tmp`, `/var`, and `/etc` aliases are normalized. UNC paths,
-device paths, traversal, and alternate data streams are rejected. Forced exports
+arbitrary device paths, traversal, and alternate data streams are rejected.
+Windows canonical verbatim drive prefixes are normalized; reserved device names
+and trailing-dot/space aliases are rejected. Forced exports
 cannot overwrite managed record/history/transaction/lock files or metadata.
 Regular hard links and filesystem-owner modification remain outside this boundary. This is not a multi-tenant sandbox.
 No user authentication, roles, encryption, or service isolation is provided.

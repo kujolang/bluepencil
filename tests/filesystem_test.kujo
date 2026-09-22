@@ -6,6 +6,10 @@ mut passed := 0; mut failed := 0
 func check(ok,label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
 func rejects_read(path) { try { read_text(path,100); return false } except error { return true } }
 func rejects_write(path) { try { write_text(path,"replacement",true); return false } except error { return true } }
+func rejects_path(path) { try { rooted_path(path); return false } except error { return true } }
+check(rooted_path("//?/C:/Users/fixture/review.json")["relative"] == "Users/fixture/review.json","Windows canonical drive prefix normalized")
+check(rejects_path("C:/state/records./review.json") && rejects_path("C:/state/records /review.json"),"Windows trailing dot and space aliases rejected")
+check(rejects_path("C:/state/NUL.txt") && rejects_path("//?/UNC/server/share/file") && rejects_path("//./C:/state"),"Windows devices and UNC namespaces rejected")
 root := create_temp_dir(".",".bluepencil-fs-")
 inside := root + "/inside"; outside := root + "/outside"
 ensure_directory(inside); ensure_directory(outside)
