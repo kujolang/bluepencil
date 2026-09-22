@@ -2,9 +2,10 @@
 set -euo pipefail
 bundle_directory="${1:?provide the absolute bundle directory}"
 bundle_platform="${2:-linux-x64}"
-container_platform="linux/amd64"; baseline="22.04"
-if [[ "$bundle_platform" == linux-arm64 ]]; then container_platform="linux/arm64"; baseline="24.04"; fi
+container_platform="linux/amd64"; baselines=(22.04 24.04)
+if [[ "$bundle_platform" == linux-arm64 ]]; then container_platform="linux/arm64"; baselines=(24.04); fi
 # Minimal OS image: no source checkout, SDK, installed Kujo, or network.
+for baseline in "${baselines[@]}"; do
 docker run --rm --platform "$container_platform" --network none -v "$bundle_directory:/bundles:ro" "ubuntu:$baseline" bash -euc '
   cd /bundles
   sha256sum -c ./*.sha256
@@ -29,3 +30,4 @@ docker run --rm --platform "$container_platform" --network none -v "$bundle_dire
   "$launcher" checkpoint-create --state /tmp/state --custodian clean-container --output /tmp/custody/checkpoint.json --json
   "$launcher" checkpoint-verify --state /tmp/state --checkpoint /tmp/custody/checkpoint.json --json
 '
+done
