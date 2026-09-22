@@ -58,3 +58,6 @@ The operator's normal shell launcher still needs that upstream correction.
 The sandbox clears inherited environment variables, uses disposable state and
 profiles, and verifies accepted evidence, rejected checksum drift, and deadline
 failure without advancing to publication.
+The real consumer integration was exercised on macOS x64. The shell adapter
+requires a POSIX shell; the three-platform application matrix validates its
+Kujo receipt logic, not the external operator on every operating system.

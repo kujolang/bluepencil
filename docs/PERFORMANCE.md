@@ -44,3 +44,11 @@ Reproduce with a disposable checkout of baseline `275fbbf`:
 
 The runner writes its measurement worker into the baseline's ignored
 `.loop-engineering` directory and removes all generated record corpora.
+
+## Complete near-ceiling traversal
+
+The subsequent [95,000-record segmentation experiment](design/SEGMENTED_COLLECTIONS.md)
+measures complete exports and sparse selections, including build time, disk
+cost, peak RSS, and serialized-byte retention. Its three-sample medians favor
+segments, but full-export RSS remains about 665–699 MB. The experimental format
+is not enabled in production and does not alter existing cursors.

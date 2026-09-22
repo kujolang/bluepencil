@@ -23,9 +23,11 @@ It is not yet a universal enterprise platform. Use a trusted local state
 directory with cooperating writers. There is no authenticated multi-user
 service. Immutable transaction intents support explicit recovery, and `audit`
 reconciles record bytes against creation events. Review
-the [September readiness assessment and next-session worklist](docs/READINESS_REVIEW_2026-09-22.md)
+the [September readiness assessment](docs/READINESS_REVIEW_2026-09-22.md)
 before relying on it for regulated or shared-host workflows. Further product
-directions are in the [next-session worklist](docs/NEXT_SESSION_2026-09-22.md).
+directions are in the [new follow-up worklist](docs/NEXT_SESSION_AFTER_0_3_RC1.md);
+the [execution ledger](docs/NEXT_SESSION_EXECUTION_2026-09-22.md) records this
+release candidate's implementation and verification evidence.
 
 Evaluation commands provide blind calibration scoring/trends, trusted-key HMAC
 bundle verification and upgrade checks, deterministic format checks, and
@@ -153,3 +155,6 @@ The canonical entrypoint is `bluepencil.kujo`; all runtime logic lives in
 The root entrypoint, manifest, version, license, and project documentation are
 intentional public files; no duplicate root implementation remains. All
 application behavior and test assertions remain in Kujo.
+
+Code and original fixtures use the MIT license. The imported HelpSteer2 corpus
+uses [CC BY 4.0 with attribution](fixtures/helpsteer2/README.md).
