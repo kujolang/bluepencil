@@ -15,6 +15,7 @@ export func profile() {
         "checkpoint-verify",
         "export-stream",
         "report-stream",
+        "reviewer-agreement",
         "calibration-score",
         "calibration-trend",
         "bundle-verify",
@@ -44,6 +45,7 @@ export func profile() {
         "history"
     ],
     "workflow_commands": [
+        "reviewer-agreement",
         "calibration-score",
         "calibration-trend",
         "bundle-verify",
@@ -56,6 +58,7 @@ export func profile() {
         "checkpoint-verify",
         "export-stream",
         "report-stream",
+        "reviewer-agreement",
         "calibration-score",
         "calibration-trend",
         "bundle-verify",

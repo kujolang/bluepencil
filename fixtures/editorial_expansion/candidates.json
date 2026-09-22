@@ -1,0 +1,44 @@
+{
+  "schema_version": "bluepencil.editorial-expansion/1",
+  "status": "awaiting-independent-labels",
+  "license": "MIT; see repository LICENSE",
+  "provenance": "Original synthetic examples authored for BluePencil on 2026-09-22. No third-party excerpts. No independent review or preferred-candidate labels are claimed.",
+  "cases": [
+    {
+      "case_id": "accessible-maintenance-notice",
+      "brief": "Write a maintenance notice for a keyboard-accessible scheduling app. Downtime is October 3, 01:00–01:20 UTC. Existing appointments are retained; changes cannot be saved during downtime. Status URL: https://status.example.invalid/maintenance.",
+      "A": "The blue indicator tells you when our system is back. Click here for more. Your appointments will be fine while we make things better tonight.",
+      "B": "Scheduling will be unavailable October 3, 01:00–01:20 UTC. Existing appointments will remain saved. Please make changes before or after that window. Read the maintenance status at https://status.example.invalid/maintenance."
+    },
+    {
+      "case_id": "international-date-ambiguity",
+      "brief": "Revise an enrollment reminder for an international audience. Enrollment closes November 4, 2026 at 17:00 UTC. There is no extension policy.",
+      "A": "Enrollment closes November 4, 2026 at 17:00 UTC. Convert that time to your local time zone before submitting. We have not announced an extension.",
+      "B": "Get your application in by 11/4 at five! Late submissions should be okay if you contact us promptly."
+    },
+    {
+      "case_id": "small-sample-performance-claim",
+      "brief": "Summarize a local benchmark: three warm-cache runs on one laptop, median 18 ms before and 15 ms after. No cold-cache, concurrency, or production measurements exist.",
+      "A": "The release is 17% faster in production. This proves the new architecture scales reliably for enterprise workloads.",
+      "B": "On one laptop, the median of three warm-cache runs fell from 18 ms to 15 ms. Cold-cache behavior, concurrency, and production performance remain unmeasured."
+    },
+    {
+      "case_id": "correction-preserves-history",
+      "brief": "A published article called a preview API stable. The API remains experimental. Draft a correction without pretending the original claim was accurate.",
+      "A": "Correction, September 22: the earlier version described the API as stable. It is experimental, and its interface may change. We have corrected the status statement and retained this notice so readers can identify the change.",
+      "B": "We have refreshed the article to keep it current. Our wording has always reflected our commitment to providing the best available information."
+    },
+    {
+      "case_id": "consent-and-case-study",
+      "brief": "A customer privately shared a quote and a screenshot containing an employee name. Neither quote approval nor publication consent has been recorded. Review the case study.",
+      "A": "The quote is persuasive and the screenshot makes the story credible. Publish now and remove the name if anyone complains.",
+      "B": "Hold publication. Obtain approval for the attributed quote and permission to use the screenshot, or replace them with approved material. Remove unnecessary personal data and retain the consent reference with the reviewed version."
+    },
+    {
+      "case_id": "credible-disagreement",
+      "brief": "Two reviewers disagree about the opening. Both agree the facts are supported and no blocker exists. One prefers a narrative opening; the other prefers a concise task statement. Record a useful editorial decision.",
+      "A": "Both openings satisfy the factual brief. The narrative version may suit an exploratory essay; the task statement better serves readers seeking instructions. Choose against the publication's intended reading task and retain the dissent for calibration.",
+      "B": "Average the two ratings and mark the opening exceptional. Since neither reviewer found a blocker, the disagreement does not need to be recorded."
+    }
+  ]
+}
