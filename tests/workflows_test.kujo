@@ -50,6 +50,8 @@ second := dispatch("history",opts(["--state",root,"--after",first["next_cursor"]
 check(first["truncated"] && len(second["events"]) == 1 && first["events"][0]["event_id"] != second["events"][0]["event_id"],"history pagination")
 protected := dispatch("export",parse_args(["--state",root,"--output",root + "/records/review-left.json","--force"],["force"]))
 check(!protected["ok"] && protected["code"] == "protected_output","forced export cannot overwrite evidence")
+case_protected := dispatch("export",parse_args(["--state",root,"--output",root + "/RECORDS/review-left.json","--force"],["force"]))
+check(!case_protected["ok"] && case_protected["code"] == "protected_output","managed output protection survives case aliases")
 for dir in ["records","history","locks","transactions"] { for name in list_dir(root + "/" + dir) { delete_file(root + "/" + dir + "/" + name) }; os_rmdir(root + "/" + dir) }
 for file in ["metadata.json","input.json","key.json"] { delete_file(root + "/" + file) }; os_rmdir(root)
 print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

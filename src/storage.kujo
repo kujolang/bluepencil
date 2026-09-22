@@ -1,4 +1,4 @@
-from src.filesystem import is_link, path_policy, read_text, write_text, directory_page, ensure_directory
+from src.filesystem import is_link, path_policy, read_text, write_text, directory_page, ensure_directory, rooted_path
 from src.common import get, parse_object, safe_id
 from src.transaction import prepare_transaction, recover_transaction
 
@@ -56,11 +56,19 @@ export func load_record(state, id) {
     path := record_path(state, id)
     if !path_is_file(path) || path_is_symlink(path) { return {"ok": false, "code": "not_found", "error": "record not found: " + id} }
     if file_size(path) > 1048576 { return {"ok": false, "code": "record_too_large", "error": "record exceeds 1 MiB"} }
+    return load_record_at(rooted_path(records_dir(state)), id)
+}
+
+// Resolve/check the state once per page; every read still independently walks
+// the descriptor-relative path without following links and enforces its cap.
+func load_record_at(directory, id) {
+    if !safe_id(id) { return {"ok":false,"code":"unsafe_id","error":"unsafe record id"} }
     mut contents := ""
-    try { contents = read_text(path, 1048576) } except error { return {"ok":false,"code":"unsafe_record","error":"record could not be read within the filesystem boundary"} }
+    try { contents = read_file_beneath(directory["root"],directory["relative"] + "/" + id + ".json",1048576) }
+    except error { return {"ok":false,"code":"unsafe_record","error":"record could not be read within the filesystem boundary"} }
     parsed := parse_object(contents, "record " + id); if !parsed["ok"] { return parsed }
-    if get(parsed["value"], "id", "") != id { return {"ok": false, "code": "id_mismatch", "error": "record id does not match filename"} }
-    return {"ok": true, "value": parsed["value"], "checksum": sha256(contents)}
+    if get(parsed["value"], "id", "") != id { return {"ok":false,"code":"id_mismatch","error":"record id does not match filename"} }
+    return {"ok":true,"value":parsed["value"],"checksum":sha256(contents)}
 }
 
 export func list_records(state, kind, after, limit) {
@@ -71,6 +79,7 @@ export func list_records(state, kind, after, limit) {
     mut page := null
     try { page = directory_page(dir,after,".json",1000) }
     except error { return {"records":records,"warnings":[{"id":"","code":"directory_scan_failed","error":"confined directory scan failed or exceeded 100000 entries"}],"truncated":true,"scanned":0,"next_cursor":after} }
+    resolved_directory := rooted_path(dir)
     mut ids := []
     for name in page["names"] { ids = push(ids, substring(name,0,len(name)-5)) }
     truncated = page["truncated"]
@@ -79,7 +88,7 @@ export func list_records(state, kind, after, limit) {
         if after == "" || id > after {
             if scanned >= 1000 || len(records) >= limit { truncated = true; break }
             scanned = scanned + 1
-            loaded := load_record(state, id)
+            loaded := load_record_at(resolved_directory, id)
             if loaded["ok"] {
                 record := loaded["value"]
                 if kind == "" || get(record, "record_type", "") == kind {
