@@ -1,4 +1,8 @@
 from src.agreement import reviewer_agreement
+from src.core import dispatch
+from src.args import parse_args
+from src.filesystem import write_text
+from tests.support import temp_path, cleanup
 mut passed := 0; mut failed := 0
 func check(ok,label) { if ok { passed += 1 } else { failed += 1; eprint("FAIL: " + label) } }
 func sample(first,second) {
@@ -9,7 +13,7 @@ func sample(first,second) {
         for choice in choices { judgments = push(judgments,{"case_id":"case-" + to_string(i),"case_sha256":sha256(to_string(i)),"preferred_candidate":choice}); i += 1 }
         rows = push(rows,{"reviewer_id":identity,"provenance":{"source":"synthetic unit test only","independent":true,"blinded":true},"judgments":judgments})
     }
-    return {"schema_version":"bluepencil.reviewer-agreement/1","reviewers":rows}
+    return {"schema_name":"bluepencil.reviewer-agreement","schema_version":"1.0.0","reviewers":rows}
 }
 let perfect := reviewer_agreement(sample(["A","B","TIE"],["A","B","TIE"]))
 check(perfect["ok"] && perfect["cohens_kappa"] == 1.0,"perfect agreement")
@@ -33,5 +37,10 @@ people = invalid["reviewers"]; person = people[1]
 person["provenance"] = {"source":"synthetic","independent":false,"blinded":true}; people[1] = person; invalid["reviewers"] = people
 check(!reviewer_agreement(invalid)["ok"],"missing independent provenance rejected")
 check(!perfect["independence_authenticated"] && !perfect["semantic_accuracy_measured"],"scope of evidence explicit")
+let input_file := temp_path("bluepencil-agreement-") + ".json"
+write_text(input_file,to_json(sample(["A","B"],["A","B"])),false)
+let routed := dispatch("reviewer-agreement",parse_args(["--input",input_file],[]))
+check(routed["ok"] && routed["value"]["cohens_kappa"] == 1.0,"public command accepts versioned agreement input")
+cleanup(input_file)
 print(to_string(passed) + " passed; " + to_string(failed) + " failed")
 if failed > 0 { exit(1) }

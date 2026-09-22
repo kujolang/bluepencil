@@ -2,10 +2,11 @@ export func profile() {
     return {
     "slug": "bluepencil",
     "name": "BluePencil",
-    "version": "0.2.0",
+    "version": "0.3.0-rc.1",
     "record_versions": [
         "0.1.0",
-        "0.2.0"
+        "0.2.0",
+        "0.3.0-rc.1"
     ],
     "contract_version": "1.0.0",
     "default_state": ".bluepencil",
@@ -16,6 +17,7 @@ export func profile() {
         "export-stream",
         "report-stream",
         "reviewer-agreement",
+        "panel-agreement",
         "calibration-score",
         "calibration-trend",
         "bundle-verify",
@@ -46,6 +48,7 @@ export func profile() {
     ],
     "workflow_commands": [
         "reviewer-agreement",
+        "panel-agreement",
         "calibration-score",
         "calibration-trend",
         "bundle-verify",
@@ -59,6 +62,7 @@ export func profile() {
         "export-stream",
         "report-stream",
         "reviewer-agreement",
+        "panel-agreement",
         "calibration-score",
         "calibration-trend",
         "bundle-verify",

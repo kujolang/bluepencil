@@ -1,11 +1,12 @@
 from src.filesystem import read_text
-from src.agreement import reviewer_agreement
+from src.agreement import reviewer_agreement, panel_agreement
 from src.common import get, parse_object
 from src.hardening import score_blinded_run, disagreement_trend, verify_bundle, bundle_upgrade_compatible, evaluate_format, accessibility_conformance, local_model_conformance
 
 export func evaluate_workflow(command, payload, key_file) {
     mut result := null
     if command == "reviewer-agreement" { result = reviewer_agreement(payload) }
+    else if command == "panel-agreement" { result = panel_agreement(payload) }
     else if command == "calibration-score" { result = score_blinded_run(payload) }
     else if command == "calibration-trend" { result = disagreement_trend(get(payload,"runs",null)) }
     else if command == "bundle-upgrade" { result = bundle_upgrade_compatible(get(payload,"current",null),get(payload,"candidate",null)) }

@@ -1,6 +1,6 @@
 # BluePencil
 
-[![Version](https://img.shields.io/badge/version-0.2.0-black)](VERSION)
+[![Version](https://img.shields.io/badge/version-0.3.0--rc.1-black)](VERSION)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 [![built with Kujo](https://img.shields.io/badge/built%20with-Kujo-white.svg)](https://github.com/kujolang/kujo)
 [![CI](https://github.com/kujolang/bluepencil/actions/workflows/validate.yml/badge.svg)](https://github.com/kujolang/bluepencil/actions/workflows/validate.yml)
@@ -12,11 +12,12 @@ brand integrity, format fidelity, and strategic purpose.
 
 ## Readiness and scope
 
-BluePencil 0.2.0 is a local editorial evidence CLI written in
+BluePencil 0.3.0-rc.1 is a local editorial evidence CLI written in
 [Kujo](https://github.com/kujolang/kujo). It records human judgments, enforces
 all eight ratings and blocker precedence, compares records, and binds optional
 artifacts by SHA-256. The vendored calibration corpus contains 18 blind pairs
-covering 23 Publishing House roles.
+covering 23 Publishing House roles, complemented by 18 licensed writing pairs
+with original independent human preference labels.
 
 It is not yet a universal enterprise platform. Use a trusted local state
 directory with cooperating writers. There is no authenticated multi-user
@@ -46,8 +47,7 @@ bluepencil doctor --json
 ```
 
 This revision requires the source-pinned Kujo runtime in
-[`runtime-requirements.json`](runtime-requirements.json), including the new
-`list_dir_beneath` API. A version label alone is insufficient; released 1.0.1
+[`runtime-requirements.json`](runtime-requirements.json), including confined directory I/O, bounded stdin, and streaming artifact digests. A version label alone is insufficient; released 1.0.1
 is unsupported. Build and compatibility instructions are in
 [Runtime support](docs/RUNTIME_SUPPORT.md). Run `kujo run scripts/runtime_probe.kujo`
 before using an independently supplied runtime.
@@ -80,6 +80,7 @@ bluepencil report --limit 100 --json
 | `transaction`, `recover` | Inspect an immutable intent and resume exact-byte publication using its owner token. |
 | `validate`, `show`, `export` | Verify and emit portable review evidence. |
 | `export-stream`, `report-stream` | Emit bounded JSONL pages and a final completion receipt. |
+| `panel-agreement` | Measure equally sized independent panels with nominal Fleiss’ kappa; reviewers may differ between cases. |
 | `reviewer-agreement` | Measure two supplied blind label sets with raw agreement and Cohen’s kappa. |
 | `calibration-score`, `calibration-trend` | Score supplied blind judgments and ordered run trends. |
 | `bundle-verify`, `bundle-upgrade` | Authenticate a bundle using an explicit trusted key; check version compatibility. |
@@ -131,18 +132,22 @@ bash scripts/validate.sh
 
 Six additional original pairs are [awaiting independent labels](fixtures/editorial_expansion/README.md);
 they are not yet reference judgments or semantic-quality evidence.
+The [licensed HelpSteer2 supplement](fixtures/helpsteer2/README.md) supplies 18
+additional pairs and 54 independent annotations. Its measured pairwise agreement
+is 77.78% and Fleiss’ kappa is 0.5531. These measure reviewer agreement on a small
+writing subset, not the accuracy of BluePencil or an automated judge.
 
 The canonical entrypoint is `bluepencil.kujo`; all runtime logic lives in
 `src/`. See [contracts](docs/contracts.md) and [security](docs/security.md).
 
 ## Repository layout
 
-- `bluepencil.kujo`: public two-line entrypoint importing `src.core`.
+- `bluepencil.kujo`, `bluepencil-adapter.kujo`: public two-line entrypoints.
 - `src/`: CLI dispatch, arguments, domain rules, storage, and library helpers.
-- `bin/bluepencil`, `bin/bluepencil.cmd`: shell and Windows launchers using `KUJO_BIN` or PATH.
+- `bin/bluepencil`, `bin/bluepencil.cmd`: shell and Windows launchers using the bundled runtime, `KUJO_BIN`, or PATH.
 - `tests/`, `fixtures/`, `schemas/`: executable checks and portable examples/contracts.
 - `scripts/`: runtime probing, validation, concurrent writers, and crash orchestration.
-- `benchmarks/`: repeatable first-page latency and peak-RSS measurements.
+- `benchmarks/`: repeatable page and near-ceiling collection measurements.
 - `docs/`: contracts, security boundaries, historical reviews, and future work.
 
 The root entrypoint, manifest, version, license, and project documentation are

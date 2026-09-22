@@ -5,7 +5,7 @@ func invalid_agreement(message) { return {"ok":false,"code":"invalid_agreement",
 // Nominal Cohen's kappa for two independently supplied, complete blind ratings.
 // This measures agreement, not accuracy or the truth of reviewer attestations.
 export func reviewer_agreement(input) {
-    if type(input) != "dict" || get(input,"schema_version","") != "bluepencil.reviewer-agreement/1" { return invalid_agreement("unsupported agreement contract") }
+    if type(input) != "dict" || get(input,"schema_version","") != "1.0.0" || get(input,"schema_name","") != "bluepencil.reviewer-agreement" { return invalid_agreement("unsupported agreement contract") }
     let reviewers := get(input,"reviewers",null)
     if type(reviewers) != "array" || len(reviewers) != 2 { return invalid_agreement("exactly two reviewers are required") }
     mut by_reviewer := []; mut reviewer_ids := []
@@ -42,4 +42,40 @@ export func reviewer_agreement(input) {
     mut kappa := null
     if chance < 1.0 { kappa = (observed - chance) / (1.0 - chance) }
     return {"ok":true,"pairs":count,"reviewers":reviewer_ids,"agreement_rate":observed,"expected_chance_agreement":chance,"cohens_kappa":kappa,"kappa_defined":chance < 1.0,"disagreements":disputes,"evidence_kind":"supplied_blind_reviewer_labels","independence_authenticated":false,"semantic_accuracy_measured":false}
+}
+
+// Fleiss' nominal kappa: each case has the same number of ratings, but the
+// individuals may differ between cases. Do not invent stable reviewer IDs.
+export func panel_agreement(input) {
+    if type(input) != "dict" || get(input,"schema_name","") != "bluepencil.panel-agreement" || get(input,"schema_version","") != "1.0.0" { return invalid_agreement("unsupported panel contract") }
+    let cases := get(input,"cases",null)
+    let provenance := get(input,"provenance",null)
+    if type(provenance) != "dict" || type(get(provenance,"source",null)) != "string" || trim(provenance["source"]) == "" || get(provenance,"independent",false) != true { return invalid_agreement("independent annotation source is required") }
+    if type(cases) != "array" || len(cases) < 2 || len(cases) > 1000 { return invalid_agreement("2..1000 cases are required") }
+    mut rating_count := 0; mut seen := []; mut marginal := {"A":0,"B":0,"TIE":0,"NEITHER":0}; mut agreement_sum := 0.0; mut disagreements := []
+    for item in cases {
+        let identity := get(item,"case_id",""); let frozen_hash := get(item,"case_sha256","")
+        let ratings := get(item,"ratings",null)
+        if type(identity) != "string" || trim(identity) == "" || len(identity) > 256 || has(seen,identity) || type(frozen_hash) != "string" || !regex_match(frozen_hash,"^[a-f0-9]{64}$") { return invalid_agreement("unique frozen case identities are required") }
+        if type(ratings) != "array" || len(ratings) < 2 || len(ratings) > 20 { return invalid_agreement("2..20 ratings per case are required") }
+        if rating_count == 0 { rating_count = len(ratings) }
+        if len(ratings) != rating_count { return invalid_agreement("equal panel sizes are required") }
+        mut counts := {"A":0,"B":0,"TIE":0,"NEITHER":0}
+        for rating in ratings {
+            if type(rating) != "string" || !has(["A","B","TIE","NEITHER"],rating) { return invalid_agreement("unsupported preference label") }
+            counts[rating] += 1; marginal[rating] += 1
+        }
+        mut equal_pairs := 0
+        for category in ["A","B","TIE","NEITHER"] { equal_pairs += counts[category] * (counts[category] - 1) }
+        let possible := rating_count * (rating_count - 1)
+        agreement_sum += to_float(equal_pairs) / possible
+        if equal_pairs != possible { disagreements = push(disagreements,identity) }
+        seen = push(seen,identity)
+    }
+    let observed := agreement_sum / len(cases); let total := len(cases) * rating_count
+    mut chance := 0.0
+    for category in ["A","B","TIE","NEITHER"] { let share := to_float(marginal[category]) / total; chance += share * share }
+    mut kappa := null
+    if chance < 1.0 { kappa = (observed - chance) / (1.0 - chance) }
+    return {"ok":true,"pairs":len(cases),"ratings_per_pair":rating_count,"agreement_rate":observed,"expected_chance_agreement":chance,"fleiss_kappa":kappa,"kappa_defined":chance < 1.0,"marginal_counts":marginal,"disagreements":disagreements,"evidence_kind":"supplied_independent_panel_labels","independence_authenticated":false,"semantic_accuracy_measured":false}
 }

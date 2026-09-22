@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.3.0-rc.1 - 2026-09-22
+
+- Added independently retained audit checkpoints and verification of restored state.
+- Added a read-only Publishing House editorial phase adapter with exact artifact digests and a real offline operator sandbox.
+- Fixed artifact binding above the whole-file reader cap with bounded streaming SHA-256.
+- Added Cohen and Fleiss agreement workflows plus 18 licensed, independently annotated writing pairs and reproducible agreement evidence.
+- Added checksummed runtime bundles and isolated extraction/install smoke tests.
+- Evaluated immutable segments near the 100,000-entry storage ceiling without changing production cursors; documented collaboration requirements.
 
 - Confined state, input, output, artifact, and directory operations with descriptor-relative I/O; forced exports protect managed evidence, including case aliases.
 - Added 2 MiB record pages, bounded native enumeration, and JSONL export/report streams with explicit completion receipts.

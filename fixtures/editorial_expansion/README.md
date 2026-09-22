@@ -15,7 +15,8 @@ must disclose prior access to the cases or labels and participation in authorshi
 A reviewer who authored the cases cannot supply an independent label for them.
 
 After both complete submissions, preserve their original bytes. Prepare a
-`bluepencil.reviewer-agreement/1` input with two `reviewers`, each containing
+JSON input with `schema_name: "bluepencil.reviewer-agreement"`,
+`schema_version: "1.0.0"`, and two `reviewers`, each containing
 `reviewer_id`, `provenance` (`source`, `blinded: true`, `independent: true`), and
 `judgments` (`case_id`, `case_sha256`, `preferred_candidate`). Use the same frozen
 case hash and case identifiers in both sets. Run:

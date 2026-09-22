@@ -1,0 +1,25 @@
+from src.filesystem import read_text
+from src.agreement import panel_agreement
+let corpus := parse_json(read_text("fixtures/helpsteer2/corpus.json",1048576))
+mut cases := []
+for item in corpus["cases"] {
+    if sha256(to_json(item["case"])) != item["case_sha256"] { throw("frozen case checksum mismatch") }
+    mut ratings := []; mut position := 0
+    for annotation in item["all_preferences_unprocessed"] {
+        if position < 3 {
+            let strength := annotation["strength"]
+            mut choice := ""
+            if strength == -100 { choice = "NEITHER" }
+            else if strength >= -3 && strength <= -1 { choice = "A" }
+            else if strength >= 1 && strength <= 3 { choice = "B" }
+            else { throw("unexpected original preference strength") }
+            ratings = push(ratings,choice)
+        }
+        position += 1
+    }
+    cases = push(cases,{"case_id":item["case_id"],"case_sha256":item["case_sha256"],"ratings":ratings})
+}
+let panel_input := {"schema_name":"bluepencil.panel-agreement","schema_version":"1.0.0","provenance":{"source":"NVIDIA HelpSteer2-Preference, pinned raw annotations; independence reported in arXiv:2410.01257 section 2","independent":true},"cases":cases}
+let result := panel_agreement(panel_input)
+if !result["ok"] { throw(to_json(result)) }
+print(to_json({"dataset":corpus["dataset"],"revision":corpus["revision"],"corpus_sha256":sha256(read_text("fixtures/helpsteer2/corpus.json",1048576)),"selection":"first three original annotations per case, no agreement-based selection","result":result}))
