@@ -1,0 +1,92 @@
+from src.common import get, safe_id, parse_object
+
+func failure(code, message) { return {"ok": false, "code": code, "error": message} }
+func journal_path(state, id) { return join_path(join_path(state, "transactions"), id + ".json") }
+func projection_path(state, id) { return join_path(join_path(state, "records"), id + ".json") }
+func event_path(state, journal) { return join_path(join_path(state, "history"), journal["event_id"] + ".json") }
+
+func exact_file(path, expected, maximum) {
+    if !path_is_file(path) || path_is_symlink(path) { return false }
+    if file_size(path) > maximum { return false }
+    return read_file(path) == expected
+}
+
+export func read_transaction(state, id) {
+    if !safe_id(id) { return failure("unsafe_id", "invalid transaction record id") }
+    dir := join_path(state, "transactions")
+    if !path_is_dir(dir) || path_is_symlink(dir) { return failure("transaction_missing", "transaction directory is missing or unsafe") }
+    path := journal_path(state, id)
+    if !path_is_file(path) || path_is_symlink(path) { return failure("transaction_missing", "immutable transaction intent not found") }
+    if file_size(path) > 3145728 { return failure("transaction_too_large", "transaction intent exceeds 3 MiB") }
+    parsed := parse_object(read_file(path), "transaction intent")
+    if !parsed["ok"] { return parsed }
+    journal := parsed["value"]
+    if get(journal, "schema_version", "") != "1.0.0" || get(journal, "record_id", "") != id || type(get(journal, "owner", null)) != "string" || !regex_match(journal["owner"], "^[a-f0-9-]{36}$") {
+        return failure("invalid_transaction", "transaction identity is invalid")
+    }
+    if type(get(journal, "record_text", null)) != "string" || len(journal["record_text"]) > 1048576 || type(get(journal, "event_text", null)) != "string" || len(journal["event_text"]) > 65536 {
+        return failure("invalid_transaction", "transaction content is missing or exceeds limits")
+    }
+    if sha256(journal["record_text"]) != get(journal, "record_sha256", "") || sha256(journal["event_text"]) != get(journal, "event_sha256", "") {
+        return failure("invalid_transaction", "transaction content checksum mismatch")
+    }
+    record := parse_object(journal["record_text"], "transaction record")
+    event := parse_object(journal["event_text"], "transaction event")
+    if !record["ok"] || !event["ok"] { return failure("invalid_transaction", "transaction content must be JSON objects") }
+    expected_id := substring(sha256(get(record["value"], "created_at", "") + "\n" + id), 0, 32)
+    if get(record["value"], "id", "") != id || get(journal, "event_id", "") != expected_id || get(event["value"], "record_id", "") != id || get(event["value"], "record_sha256", "") != journal["record_sha256"] || get(event["value"], "actor", null) != get(record["value"], "actor", null) || get(event["value"], "at", null) != get(record["value"], "created_at", null) {
+        return failure("invalid_transaction", "transaction record and event disagree")
+    }
+    return {"ok": true, "value": journal}
+}
+
+export func inspect_transaction(state, id) {
+    loaded := read_transaction(state, id)
+    if !loaded["ok"] { return loaded }
+    journal := loaded["value"]
+    record_ok := exact_file(projection_path(state, id), journal["record_text"], 1048576)
+    event_ok := exact_file(event_path(state, journal), journal["event_text"], 65536)
+    complete := record_ok && event_ok
+    return {"ok": true, "value": {"record_id": id, "owner": journal["owner"], "created_at": journal["created_at"], "record_published": record_ok, "event_published": event_ok, "complete": complete, "record_sha256": journal["record_sha256"]}}
+}
+
+export func prepare_transaction(state, record) {
+    id := get(record, "id", "")
+    if !safe_id(id) { return failure("unsafe_id", "invalid record id") }
+    serialized := to_json_pretty(record) + "\n"
+    if len(serialized) > 1048576 { return failure("record_too_large", "serialized record exceeds 1 MiB") }
+    event_id := substring(sha256(record["created_at"] + "\n" + id), 0, 32)
+    event := {"schema_version":"1.0.0","event":"record.created","record_id":id,"actor":record["actor"],"at":record["created_at"],"record_sha256":sha256(serialized)}
+    event_text := to_json_pretty(event) + "\n"
+    journal := {"schema_version":"1.0.0","record_id":id,"owner":uuid_v4(),"created_at":now_utc(),"record_sha256":sha256(serialized),"event_sha256":sha256(event_text),"event_id":event_id,"record_text":serialized,"event_text":event_text}
+    if file_exists(projection_path(state, id)) { return failure("duplicate_id", "record already exists") }
+    if file_exists(event_path(state, journal)) { return failure("history_conflict", "audit history event already exists") }
+    rendered := to_json(journal) + "\n"
+    if len(rendered) > 3145728 { return failure("transaction_too_large", "encoded transaction intent exceeds 3 MiB") }
+    try { write_file_atomic(journal_path(state, id), rendered, false) }
+    except error { return failure("write_conflict", "transaction already reserved or could not be written; inspect before recovery") }
+    return {"ok": true, "value": {"owner":journal["owner"],"record_id":id}}
+}
+
+func publish_exact(path, text, maximum) {
+    if exact_file(path, text, maximum) { return true }
+    try { write_file_atomic(path, text, false) } except error {
+        // A cooperating writer/recovery may have just published the same intent.
+        return exact_file(path, text, maximum)
+    }
+    return exact_file(path, text, maximum)
+}
+
+export func recover_transaction(state, id, owner) {
+    loaded := read_transaction(state, id)
+    if !loaded["ok"] { return loaded }
+    journal := loaded["value"]
+    if owner != journal["owner"] { return failure("owner_mismatch", "recovery requires the exact transaction owner token from inspection") }
+    if !publish_exact(projection_path(state, id), journal["record_text"], 1048576) {
+        return failure("recovery_conflict", "record differs from immutable intent or cannot be published; no data was deleted")
+    }
+    if !publish_exact(event_path(state, journal), journal["event_text"], 65536) {
+        return failure("recovery_conflict", "event differs from immutable intent or cannot be published; inspect and retry after resolving the conflict")
+    }
+    return {"ok": true, "value": {"path": projection_path(state,id), "checksum":journal["record_sha256"],"owner":owner,"recovered":true,"complete":true}}
+}

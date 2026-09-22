@@ -76,7 +76,7 @@ Priorities reflect local data integrity before broader product features.
   altered, duplicate, and orphan events; test record tampering, event tampering,
   and legitimate legacy records. Do not imply protection against a filesystem
   owner who can rewrite both sides without an external trust anchor.
-- [ ] **BP-02: Add crash recovery and lock ownership.** `save_new` writes record
+- [x] **BP-02: Add crash recovery and lock ownership.** `save_new` writes record
   then history and rolls back on caught failure; process death between writes
   bypasses rollback and lock release. Add a recoverable transaction protocol,
   ownership metadata, and explicit stale-lock inspection/recovery. Inject
@@ -136,3 +136,5 @@ expansion should build on those storage guarantees rather than obscure them.
 ## Completion evidence (continuation)
 
 BP-01: `src/audit.kujo`, `audit` CLI, and `tests/audit_test.kujo` (12 passing assertions) reconcile exact persisted bytes, event identities, duplicates, missing/orphan events, malformed events, and legitimate 0.1.0 records. Reports fail when coverage is incomplete. Local checksum reconciliation does not establish an external trust anchor.
+
+BP-02: immutable transaction intents (`src/transaction.kujo`) replace transient locks for new writes. `transaction --id` exposes owner/completion; `recover --id --owner` idempotently publishes only exact original bytes. Legacy locks are never stolen. `tests/transaction_test.kujo` passes 24 checks covering interruption after intent/record/event publication, incorrect owner, duplicate creation, incomplete audit, record/event conflicts, and safe repeat recovery. No recovery path deletes a record or clears an age-based lock. Power-loss durability still depends on filesystem/runtime atomic-write guarantees.

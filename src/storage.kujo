@@ -1,4 +1,5 @@
-from src.common import get, parse_object, safe_id, canonical_json
+from src.common import get, parse_object, safe_id
+from src.transaction import prepare_transaction, recover_transaction
 
 func parent_dir(path) {
     mut index := len(path) - 1
@@ -39,7 +40,7 @@ export func record_path(state, id) { return join_path(records_dir(state), id + "
 
 export func initialize(state, metadata) {
     error := validate_state_path(state); if error != "" { return {"ok": false, "code": "unsafe_state", "error": error} }
-    for dir in [records_dir(state), history_dir(state), locks_dir(state)] { error = ensure_tree(dir); if error != "" { return {"ok": false, "code": "unsafe_state", "error": error} }; if path_is_symlink(dir) || !path_is_dir(dir) { return {"ok": false, "code": "unsafe_state", "error": "managed state paths must be regular directories"} } }
+    for dir in [records_dir(state), history_dir(state), locks_dir(state), join_path(state, "transactions")] { error = ensure_tree(dir); if error != "" { return {"ok": false, "code": "unsafe_state", "error": error} }; if path_is_symlink(dir) || !path_is_dir(dir) { return {"ok": false, "code": "unsafe_state", "error": "managed state paths must be regular directories"} } }
     path := join_path(state, "metadata.json")
     if file_exists(path) {
         if path_is_symlink(path) || !path_is_file(path) { return {"ok": false, "code": "unsafe_state", "error": "metadata must be a regular non-symlink file"} }
@@ -51,39 +52,16 @@ export func initialize(state, metadata) {
     return {"ok": true, "value": {"state": state, "initialized": true}}
 }
 
-func lock_path(state, id) { return join_path(locks_dir(state), id + ".lock") }
-
-func acquire_lock(state, id) {
-    path := lock_path(state, id)
-    if path_is_dir(path) { return {"ok": false, "code": "write_conflict", "error": "record write is locked: " + id} }
-    try { write_file_atomic(path, id + "\n", false) } except error { return {"ok": false, "code": "write_conflict", "error": "could not acquire record lock: " + id} }
-    return {"ok": true, "path": path}
-}
-
-func release_lock(path) { if path_is_file(path) { try { delete_file(path) } except error {} } }
-
 export func save_new(state, record) {
-    id := record["id"]
-    if !safe_id(id) { return {"ok": false, "code": "unsafe_id", "error": "unsafe record id"} }
-    lock := acquire_lock(state, id); if !lock["ok"] { return lock }
-    path := record_path(state, id)
-    if path_is_file(path) { release_lock(lock["path"]); return {"ok": false, "code": "duplicate_id", "error": "record already exists: " + id} }
-    if file_exists(path) && path_is_symlink(path) { release_lock(lock["path"]); return {"ok": false, "code": "symlink_escape", "error": "record symlinks are not allowed"} }
-    serialized := to_json_pretty(record) + "\n"
-    if len(serialized) > 1048576 { release_lock(lock["path"]); return {"ok": false, "code": "record_too_large", "error": "serialized record exceeds 1 MiB"} }
-    checksum := sha256(serialized)
-    event := {"schema_version": "1.0.0", "event": "record.created", "record_id": id, "actor": record["actor"], "at": record["created_at"], "record_sha256": checksum}
-    event_path := join_path(history_dir(state), substring(sha256(record["created_at"] + "\n" + id), 0, 32) + ".json")
-    if file_exists(event_path) { release_lock(lock["path"]); return {"ok": false, "code": "history_conflict", "error": "audit history event already exists"} }
-    try { write_file_atomic(path, serialized, false) } except error { release_lock(lock["path"]); return {"ok": false, "code": "write_failed", "error": "atomic record write failed"} }
-    try { write_file_atomic(event_path, to_json_pretty(event) + "\n", false) } except error {
-        try { delete_file(path) } except rollback_error {}
-        release_lock(lock["path"])
-        if path_is_file(path) { return {"ok": false, "code": "history_write_failed", "error": "audit history write failed and record rollback was incomplete"} }
-        return {"ok": false, "code": "history_write_failed", "error": "audit history write failed; record write was rolled back"}
-    }
-    release_lock(lock["path"])
-    return {"ok": true, "value": {"path": path, "checksum": checksum}}
+    state_error := validate_state_path(state)
+    if state_error != "" { return {"ok":false,"code":"unsafe_state","error":state_error} }
+    id := get(record, "id", "")
+    if !safe_id(id) { return {"ok":false,"code":"unsafe_id","error":"unsafe record id"} }
+    // Never steal legacy lock files/directories by age. New writes reserve immutable intents.
+    if file_exists(join_path(locks_dir(state), id + ".lock")) { return {"ok":false,"code":"write_conflict","error":"legacy record lock requires operator inspection"} }
+    prepared := prepare_transaction(state, record)
+    if !prepared["ok"] { return prepared }
+    return recover_transaction(state, id, prepared["value"]["owner"])
 }
 
 export func load_record(state, id) {

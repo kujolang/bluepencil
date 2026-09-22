@@ -1,5 +1,6 @@
 from src.args import parse_args
 from src.audit import audit_state, list_history
+from src.transaction import inspect_transaction, recover_transaction
 from src.common import get, has, canonical_json, parse_object, safe_id, safe_cursor, valid_timestamp, find_sensitive_key, bounded_int, envelope
 from src.profile import profile
 from src.domain import record_type, id_prefix, validate_command
@@ -124,6 +125,13 @@ export func dispatch(command, parsed) {
     p := profile(); config_result := load_config(flag(parsed, "config", "")); if !config_result["ok"] { return config_result }; config := config_result["value"]
     state := setting(parsed, config, "state", p["default_state"])
     if command == "init" { return initialize(state, {"schema_version": "1.0.0", "tool": p["slug"], "tool_version": p["version"], "contract_version": p["contract_version"], "created_at": now_utc()}) }
+    if command == "transaction" || command == "recover" {
+        state_error := validate_state_path(state)
+        if state_error != "" { return {"ok":false,"code":"unsafe_state","error":state_error} }
+        id := flag(parsed, "id", "")
+        if command == "transaction" { return inspect_transaction(state, id) }
+        return recover_transaction(state, id, flag(parsed, "owner", ""))
+    }
     if command == "audit" { return audit_state(state) }
     if command == "history" {
         limit := bounded_int(setting(parsed, config, "limit", 100), 100, 1, 1000)
@@ -192,7 +200,7 @@ export func main(argv) {
     if !has(p["commands"], command) { eprint(p["name"] + ": unknown command: " + command); return 2 }
     parsed := parse_args(command_tokens(argv, command), ["json", "dry-run", "force"])
     if len(parsed["errors"]) > 0 { eprint(p["name"] + ": " + parsed["errors"][0]); return 2 }
-    allowed := ["state", "config", "input", "id", "other-id", "actor", "timestamp", "path", "type", "after", "limit", "output", "json", "dry-run", "force"]
+    allowed := ["owner", "state", "config", "input", "id", "other-id", "actor", "timestamp", "path", "type", "after", "limit", "output", "json", "dry-run", "force"]
     for name in keys(parsed["flags"]) { if !has(allowed, name) { eprint(p["name"] + ": unknown flag --" + name); return 2 } }
     if len(parsed["positionals"]) > 0 { eprint(p["name"] + ": unexpected positional argument: " + parsed["positionals"][0]); return 2 }
     result := dispatch(command, parsed)

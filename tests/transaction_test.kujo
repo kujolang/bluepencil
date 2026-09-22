@@ -1,0 +1,39 @@
+from src.storage import initialize, save_new
+from src.transaction import prepare_transaction, recover_transaction, inspect_transaction, read_transaction
+from src.audit import audit_state
+mut passed := 0; mut failed := 0
+func check(ok,label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
+root := "/tmp/bluepencil-recovery-" + uuid_v4()
+initialize(root,{"tool":"bluepencil","contract_version":"1.0.0"})
+func fixture(id) { return {"schema_version":"1.0.0","tool_version":"0.2.0","contract_version":"1.0.0","id":id,"command":"review","record_type":"review","actor":"fixture","created_at":"2026-09-22T00:00:00Z","provenance":[],"payload":parse_json(read_file("fixtures/core.json"))} }
+for stage in ["intent", "record", "event"] {
+    id := "review-" + stage
+    prepared := prepare_transaction(root, fixture(id)); check(prepared["ok"], stage + " intent persisted")
+    check(!audit_state(root)["ok"], stage + " unpublished intent is not audit-clean")
+    journal := read_transaction(root,id)["value"]
+    if stage != "intent" { write_file_atomic(root + "/records/" + id + ".json", journal["record_text"], false) }
+    if stage == "event" { write_file_atomic(root + "/history/" + journal["event_id"] + ".json", journal["event_text"], false) }
+    check(!recover_transaction(root,id,"wrong-owner")["ok"], stage + " wrong owner rejected")
+    result := recover_transaction(root,id,prepared["value"]["owner"])
+    check(result["ok"] && inspect_transaction(root,id)["value"]["complete"], stage + " recovery completes original bytes")
+    check(recover_transaction(root,id,prepared["value"]["owner"])["ok"], stage + " repeat recovery idempotent")
+    check(!save_new(root,fixture(id))["ok"], stage + " duplicate create rejected")
+}
+check(audit_state(root)["ok"], "recovered records reconcile")
+id := "review-conflict"
+prepared := prepare_transaction(root,fixture(id)); owner := prepared["value"]["owner"]
+write_file(root + "/records/" + id + ".json", "another writer's bytes", true)
+check(!recover_transaction(root,id,owner)["ok"], "record conflict rejected")
+check(read_file(root + "/records/" + id + ".json") == "another writer's bytes", "recovery never deletes conflicting record")
+id = "review-event-conflict"
+prepared = prepare_transaction(root,fixture(id)); owner = prepared["value"]["owner"]
+journal := read_transaction(root,id)["value"]
+event_path := root + "/history/" + journal["event_id"] + ".json"
+write_file(event_path, "another event", true)
+check(!recover_transaction(root,id,owner)["ok"], "event conflict rejected")
+check(read_file(event_path) == "another event" && path_is_file(root + "/records/" + id + ".json"), "event conflict preserves record and competing event")
+delete_file(event_path)
+check(recover_transaction(root,id,owner)["ok"], "retry after operator resolves conflict")
+for dir in ["records","history","locks","transactions"] { for name in list_dir(root + "/" + dir) { delete_file(root + "/" + dir + "/" + name) }; os_rmdir(root + "/" + dir) }
+delete_file(root + "/metadata.json"); os_rmdir(root)
+print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

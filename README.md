@@ -20,7 +20,8 @@ covering 23 Publishing House roles.
 
 It is not yet a universal enterprise platform. Use a trusted local state
 directory with cooperating writers. There is no authenticated multi-user
-service, crash-recovery journal, or full audit-history reconciliation. Review
+service. Immutable transaction intents support explicit recovery, and `audit`
+reconciles record bytes against creation events. Review
 the [September readiness assessment and next-session worklist](docs/READINESS_REVIEW_2026-09-22.md)
 before relying on it for regulated or shared-host workflows.
 
@@ -67,7 +68,9 @@ bluepencil report --limit 100 --json
 | `compare` | Compare two immutable reviews without flattening disagreement. |
 | `calibrate` | Record a blind calibration judgment with reviewer and rubric identity. |
 | `style`, `brand`, `claims`, `format`, `accessibility` | Record focused deterministic or semantic findings. |
-| `disagreements`, `report`, `history` | List stored records (currently aliases, not specialized analysis or audit-event readers). |
+| `disagreements`, `report` | List stored records (specialized analysis is in progress). |
+| `history`, `audit` | Read creation events and reconcile record/event integrity. |
+| `transaction`, `recover` | Inspect an immutable intent and resume exact-byte publication using its owner token. |
 | `validate`, `show`, `export` | Verify and emit portable review evidence. |
 | `doctor`, `version` | Report health and compatibility. |
 

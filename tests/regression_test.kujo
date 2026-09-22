@@ -42,6 +42,6 @@ first := list_records(root, "", "", 1)
 second := list_records(root, "", first["next_cursor"], 1)
 check(first["records"][0]["id"] == "review-a" && second["records"][0]["id"] == "review-a-b", "prefix-related ids paginate without omissions")
 for name in list_dir(root + "/records") { delete_file(root + "/records/" + name) }
-for name in ["records", "history", "locks"] { os_rmdir(root + "/" + name) }
+for name in ["records", "history", "locks", "transactions"] { for file in list_dir(root + "/" + name) { delete_file(root + "/" + name + "/" + file) }; os_rmdir(root + "/" + name) }
 delete_file(root + "/metadata.json"); os_rmdir(root)
 print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

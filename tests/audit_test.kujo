@@ -40,6 +40,6 @@ page := list_history(root, "", 1)
 check(page["ok"] && page["value"]["events"][0]["event"]["record_id"] == "review-audit", "history returns actual event")
 check(dispatch("audit", parse_args(["--state",root], []))["ok"], "CLI audit dispatch")
 check(!list_history(root, "../escape", 10)["ok"], "history cursor rejects traversal")
-for dir in ["records", "history", "locks"] { for name in list_dir(root + "/" + dir) { delete_file(root + "/" + dir + "/" + name) }; os_rmdir(root + "/" + dir) }
+for dir in ["records", "history", "locks", "transactions"] { for name in list_dir(root + "/" + dir) { delete_file(root + "/" + dir + "/" + name) }; os_rmdir(root + "/" + dir) }
 delete_file(root + "/metadata.json"); os_rmdir(root)
 print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

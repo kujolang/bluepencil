@@ -9,6 +9,7 @@ cd "$ROOT"
 "$KUJO_RUNTIME" run tests/test.kujo
 "$KUJO_RUNTIME" run tests/security_test.kujo
 "$KUJO_RUNTIME" run tests/audit_test.kujo
+"$KUJO_RUNTIME" run tests/transaction_test.kujo
 "$KUJO_RUNTIME" run tests/storage_test.kujo
 "$KUJO_RUNTIME" run tests/domain_test.kujo
 "$KUJO_RUNTIME" run tests/hardening_test.kujo
