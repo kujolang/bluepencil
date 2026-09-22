@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 env:
-  KUJO_COMMIT: ee6ce1dabd6629be33b3241b0ab9b5a970256c56
+  KUJO_COMMIT: 3f20b2bbcaaba9b3f5afddbab560724b6f1d74f3
   CARGO_PROFILE_RELEASE_LTO: "false"
   CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
   CARGO_PROFILE_RELEASE_OPT_LEVEL: "1"
@@ -53,6 +53,12 @@ jobs:
       - name: Directory API runtime and capability parity
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: cargo test --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml --test directory_page_contract
+      - name: Adapter I/O runtime parity
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: cargo test --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml --test bounded_stdin --test rooted_digest
+      - name: Lexical scope regression
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: cargo test --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml --test vm_interpreter_parity_surfaces top_level_functions
       - name: Save verified runtime build
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830

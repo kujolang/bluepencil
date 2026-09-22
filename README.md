@@ -51,7 +51,9 @@ This revision requires the source-pinned Kujo runtime in
 is unsupported. Build and compatibility instructions are in
 [Runtime support](docs/RUNTIME_SUPPORT.md). Run `kujo run scripts/runtime_probe.kujo`
 before using an independently supplied runtime.
-No model service is invoked by the baseline CLI.
+No model service is invoked by the baseline CLI. The optional read-only
+[Publishing House adapter](docs/OPERATOR_ADAPTER.md) consumes existing review evidence.
+[Collaboration requirements](docs/design/COLLABORATION.md) preserve the local CLI boundary.
 
 ## Quick start
 
@@ -78,6 +80,7 @@ bluepencil report --limit 100 --json
 | `transaction`, `recover` | Inspect an immutable intent and resume exact-byte publication using its owner token. |
 | `validate`, `show`, `export` | Verify and emit portable review evidence. |
 | `export-stream`, `report-stream` | Emit bounded JSONL pages and a final completion receipt. |
+| `reviewer-agreement` | Measure two supplied blind label sets with raw agreement and Cohen’s kappa. |
 | `calibration-score`, `calibration-trend` | Score supplied blind judgments and ordered run trends. |
 | `bundle-verify`, `bundle-upgrade` | Authenticate a bundle using an explicit trusted key; check version compatibility. |
 | `format-check`, `accessibility-check`, `adapter-check` | Evaluate supplied content rules or validate clearly labeled declarations. |
@@ -125,6 +128,9 @@ judgment. Measured scan behavior and memory tradeoffs are documented in
 ```bash
 bash scripts/validate.sh
 ```
+
+Six additional original pairs are [awaiting independent labels](fixtures/editorial_expansion/README.md);
+they are not yet reference judgments or semantic-quality evidence.
 
 The canonical entrypoint is `bluepencil.kujo`; all runtime logic lives in
 `src/`. See [contracts](docs/contracts.md) and [security](docs/security.md).

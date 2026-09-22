@@ -59,8 +59,7 @@ export func write_text(path, text, overwrite) {
 
 export func digest_file(path, maximum) {
     resolved := rooted_path(path)
-    data := read_binary_file_beneath(resolved["root"],resolved["relative"],maximum)
-    return {"sha256":sha256(data),"bytes":len(data)}
+    return digest_file_beneath(resolved["root"],resolved["relative"],maximum)
 }
 
 export func directory_page(path, after, suffix, limit) {

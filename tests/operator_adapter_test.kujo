@@ -1,0 +1,53 @@
+from src.operator_adapter import phase_receipt
+from src.core import dispatch
+from src.args import parse_args
+from src.filesystem import read_text, write_text, digest_file
+from src.domain import DIMENSIONS
+from src.common import canonical_json
+from tests.support import cleanup, temp_path
+let sandbox := temp_path("bluepencil-adapter-")
+create_dir(sandbox)
+mut passed := 0; mut failed := 0
+func check(ok,label) { if ok { passed += 1 } else { failed += 1; eprint("FAIL: " + label) } }
+let source := sandbox + "/article.md"
+write_text(source,"Original offline fixture article.\n",false)
+mut payload := parse_json(read_text("examples/editorial_walkthrough/blocked.json",8192))
+payload["artifact_id"] = "fixture-item"; payload["verdict"] = "pass"; payload["blocking_findings"] = []
+mut ratings := {}
+for dimension in DIMENSIONS { ratings[dimension] = "ADEQUATE" }
+payload["dimensions"] = ratings
+write_text(sandbox + "/review.json",to_json(payload),false)
+let stored := dispatch("review",parse_args(["--state",sandbox + "/state","--input",sandbox + "/review.json","--id","review-adapter","--actor","fixture-reviewer","--path",source],[]))
+if !stored["ok"] { eprint(to_json(stored)); cleanup(sandbox); exit(1) }
+check(stored["ok"],"create supplied reviewer evidence")
+let evidence := sandbox + "/state/records/review-adapter.json"
+mut request := {"schema_name":"publishing-house.phase-request","schema_version":"1.0.0","phase":"editorial-review","state_root":sandbox,"repos_root":os_getcwd(),"profile":{"id":"fixture-publication","approval_policy":{},"deployment":{},"verification":{}},"item":{"id":"fixture-item","publication":"fixture-publication","type":"article","phase_index":4,"status":"in_progress","bluepencil_review":{"path":evidence,"sha256":digest_file(evidence,1048576)["sha256"],"source_sha256":sha256("Original offline fixture article.\n")}}}
+let original := canonical_json(request)
+let receipt := phase_receipt(request)
+check(receipt["ok"],"accept bound review")
+check(canonical_json(receipt) == canonical_json(phase_receipt(request)),"retry returns identical receipt")
+check(json_schema_validate(request,parse_json(read_text("fixtures/publishing_house/phase-request.schema.json",8192)))["valid"],"request satisfies actual consumer schema")
+check(json_schema_validate(receipt["data"],parse_json(read_text("fixtures/publishing_house/phase-receipt.schema.json",8192)))["valid"],"receipt satisfies actual consumer schema")
+check(!receipt["data"]["external_effect"] && receipt["data"]["verification"]["authority"] == "PROPOSE","no publication effect or authority")
+request["phase"] = "approval-publication"
+check(phase_receipt(request)["error_code"] == "unsupported_phase","reject publication phase")
+request = parse_json(original); mut changed_item := request["item"]; changed_item["id"] = "different-item"; request["item"] = changed_item
+check(phase_receipt(request)["error_code"] == "review_identity","reject cross-item evidence")
+request = parse_json(original); changed_item = request["item"]; changed_item["publication"] = "other"; request["item"] = changed_item
+check(phase_receipt(request)["error_code"] == "request_identity","reject cross-publication request")
+request = parse_json(original); changed_item = request["item"]; mut changed_reference := changed_item["bluepencil_review"]; changed_reference["sha256"] = sha256("wrong"); changed_item["bluepencil_review"] = changed_reference; request["item"] = changed_item
+check(phase_receipt(request)["error_code"] == "review_checksum_mismatch","reject changed review reference")
+request = parse_json(original); changed_item = request["item"]; changed_reference = changed_item["bluepencil_review"]; changed_reference["source_sha256"] = sha256("wrong"); changed_item["bluepencil_review"] = changed_reference; request["item"] = changed_item
+check(phase_receipt(request)["error_code"] == "source_checksum_mismatch","reject different reviewed source")
+request = parse_json(original)
+mut blocked_record := parse_json(read_text(evidence,1048576)); mut blocked_payload := blocked_record["payload"]
+blocked_payload["verdict"] = "blocked"; blocked_payload["blocking_findings"] = [{"code":"UNSUPPORTED","message":"Add evidence"}]; blocked_record["payload"] = blocked_payload
+write_text(evidence,to_json(blocked_record),true)
+changed_item = request["item"]; changed_reference = changed_item["bluepencil_review"]; changed_reference["sha256"] = digest_file(evidence,1048576)["sha256"]; changed_item["bluepencil_review"] = changed_reference; request["item"] = changed_item
+check(phase_receipt(request)["error_code"] == "editorial_blocked","blocked judgment cannot advance operator")
+write_text(source,"Modified source.\n",true)
+check(!phase_receipt(request)["ok"],"reject artifact drift")
+check(!phase_receipt([])["ok"],"reject malformed request")
+cleanup(sandbox)
+print(to_string(passed) + " passed; " + to_string(failed) + " failed")
+if failed > 0 { exit(1) }

@@ -1,0 +1,67 @@
+from src.core import dispatch
+from src.args import parse_args
+from src.filesystem import read_text, write_text, digest_file
+from src.domain import DIMENSIONS
+from src.common import get
+from tests.support import temp_path, cleanup
+
+// Explicit external-consumer integration; no network/provider/publication paths.
+let parameters := args()
+if len(parameters) != 3 { eprint("usage: operator_sandbox.kujo RUNTIME OPERATOR_CLI REPOS_ROOT"); exit(2) }
+let test_root := temp_path("bluepencil-operator-sandbox-")
+create_dir(test_root)
+let runtime := parameters[0]; let operator_cli := parameters[1]; let repos := parameters[2]
+let house_state := test_root + "/house"; let review_state := test_root + "/review-state"
+let adapter := os_getcwd() + "/bin/bluepencil-phase-adapter"
+mut process_env := {"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","KUJO_BIN":runtime,"PUBLISHING_HOUSE_PHASE_ADAPTER":adapter,"PUBLISHING_HOUSE_PHASE_TIMEOUT_SECONDS":"30"}
+mut passed := 0; mut failed := 0
+func require(ok,label) { if ok { passed += 1 } else { failed += 1; eprint("FAIL: " + label); exit(1) } }
+func operator_call(arguments, environment) {
+    let argv := [operator_cli,"--state",house_state,"--repos",repos,"--json",...arguments]
+    let execution := spawn_process(argv,{"timeout_ms":120000,"max_output_bytes":1048576,"inherit_env":false,"env":environment})
+    if execution.exitcode != 0 { eprint(execution.stdout); eprint(execution.stderr); exit(1) }
+    return parse_json(execution.stdout)
+}
+require(operator_call(["init"],process_env)["ok"],"initialize actual consumer in disposable state")
+// Profiles are fixture copies in this private sandbox. No real site is targeted.
+for name in list_dir(house_state + "/profiles") {
+    let profile_path := house_state + "/profiles/" + name
+    mut copied_profile := parse_json(read_text(profile_path,65536))
+    copied_profile["canonical_repository"] = test_root
+    write_text(profile_path,to_json(copied_profile),true)
+}
+let article_path := test_root + "/article.md"
+write_text(article_path,"Offline integration evidence.\n",false)
+mut review_payload := parse_json(read_text("examples/editorial_walkthrough/blocked.json",8192))
+review_payload["artifact_id"] = "sandbox-item"; review_payload["verdict"] = "pass"; review_payload["blocking_findings"] = []
+mut dimensions := {}; for dimension in DIMENSIONS { dimensions[dimension] = "ADEQUATE" }; review_payload["dimensions"] = dimensions
+write_text(test_root + "/review-input.json",to_json(review_payload),false)
+let created := dispatch("review",parse_args(["--state",review_state,"--input",test_root + "/review-input.json","--actor","fixture-reviewer","--id","review-sandbox","--path",article_path],[]))
+require(created["ok"],"create exact-byte reviewer evidence")
+let record_path := review_state + "/records/review-sandbox.json"
+let item_path := house_state + "/items/sandbox-item.json"
+let fixture_item := {"id":"sandbox-item","publication":"personal-blog","type":"article","phase_index":4,"status":"in_progress","depends_on":[],"priority":"normal","receipts":[],"attempts":{},"bluepencil_review":{"path":record_path,"sha256":digest_file(record_path,1048576)["sha256"],"source_sha256":sha256("Offline integration evidence.\n")}}
+write_text(item_path,to_json(fixture_item),false)
+let successful := operator_call(["tick","--limit","1"],process_env)
+let advanced := parse_json(read_text(item_path,65536))
+require(successful["ok"] && advanced["phase_index"] == 5 && len(advanced["receipts"]) == 1,"actual operator accepts matching editorial receipt")
+let accepted := advanced["receipts"][0]
+require(accepted["item_id"] == "sandbox-item" && !accepted["external_effect"] && accepted["sha256"] == digest_file(record_path,1048576)["sha256"],"consumer validates identity, exact checksum, and no effect")
+// Corrupt review bytes, then prove the operator retains the editorial phase.
+write_text(item_path,to_json(fixture_item),true)
+write_text(record_path,read_text(record_path,1048576) + " ",true)
+operator_call(["tick","--limit","1"],process_env)
+let rejected := parse_json(read_text(item_path,65536))
+require(rejected["phase_index"] == 4 && rejected["blocker"]["code"] == "review_checksum_mismatch","changed immutable evidence cannot advance")
+// An intentionally stalled executable exercises the real consumer timeout path.
+let stalled := test_root + "/stalled-adapter"
+write_text(stalled,"#!/bin/sh\nexec sleep 3\n",false)
+let chmod_result := spawn_process(["chmod","700",stalled],{"timeout_ms":5000,"max_output_bytes":4096})
+require(chmod_result.exitcode == 0,"prepare disposable stalled process")
+write_text(item_path,to_json(fixture_item),true)
+process_env["PUBLISHING_HOUSE_PHASE_ADAPTER"] = stalled; process_env["PUBLISHING_HOUSE_PHASE_TIMEOUT_SECONDS"] = "1"
+operator_call(["tick","--limit","1"],process_env)
+let timed_out := parse_json(read_text(item_path,65536))
+require(timed_out["phase_index"] == 4 && timed_out["blocker"]["code"] == "live_worker_timeout","actual operator deadline preserves phase")
+cleanup(test_root)
+print(to_json({"ok":true,"passed":passed,"failed":failed,"consumer":"publishing-house-operator","external_effect":false,"scope":"disposable offline phase integration"}))
