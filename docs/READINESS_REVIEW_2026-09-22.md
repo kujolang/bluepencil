@@ -1,6 +1,11 @@
 # BluePencil readiness review — 2026-09-22
 
-## Assessment
+## Assessment at the start of this review (historical)
+
+The findings and initial 69-assertion gate below are the preserved baseline.
+Completed continuation work is recorded under **Completion evidence**, with
+current runtime requirements in [Runtime support](RUNTIME_SUPPORT.md) and
+measured scaling behavior in [Performance](PERFORMANCE.md).
 
 **Not yet universally useful or enterprise-ready.** BluePencil is a useful
 Kujo-native local editorial-record foundation. The CLI enforces a bounded
@@ -82,7 +87,7 @@ Priorities reflect local data integrity before broader product features.
   ownership metadata, and explicit stale-lock inspection/recovery. Inject
   failures at each persistence boundary; prove retries never delete another
   writer's data. Do not clear locks merely because they are old.
-- [ ] **BP-03: Confine filesystem operations.** `validate_state_path` checks the
+- [x] **BP-03: Confine filesystem operations.** `validate_state_path` checks the
   final state path and `initialize` checks managed leaves; `ensure_tree` accepts
   linked ancestors. Ordinary path-based read/write operations also leave
   check/use races. Evaluate Kujo's descriptor-relative beneath-root I/O before
@@ -92,7 +97,7 @@ Priorities reflect local data integrity before broader product features.
 
 ### P2 — scale, contracts, and useful workflows
 
-- [ ] **BP-04: Bound bytes and directory enumeration.** `list_records` still
+- [x] **BP-04: Bound bytes and directory enumeration.** `list_records` still
   sorts the complete directory and may hold up to 1,000 one-MiB records; export
   checks its eight-MiB cap after serialization. Add an aggregate byte budget,
   bounded iterator/index strategy, and truly incremental report/export output.
@@ -114,7 +119,7 @@ Priorities reflect local data integrity before broader product features.
   Bundle compatibility accepts missing/poorly formed versions. Add negative
   fixtures for every exported boundary, align JSON schemas, validate schemas
   against actual records, and preserve safe unknown metadata deliberately.
-- [ ] **BP-08: Establish runtime and platform support.** Exercise the declared
+- [x] **BP-08: Establish runtime and platform support.** Exercise the declared
   minimum and pinned runtime, Linux/macOS/Windows launch behavior, simultaneous
   first initialization, repeated competing writes, and fixture-only integration
   with Publishing House consumers. Document supported versions from evidence.
@@ -146,3 +151,52 @@ BP-07: typed configuration, mutation-only records, artifact structure, finding e
 BP-09: the versioned editorial walkthrough and expected summary are tested through `tests/walkthrough_test.kujo` (4 checks including three exported record schemas). See `docs/EDITORIAL_WALKTHROUGH.md` and `examples/editorial_walkthrough/`.
 
 BP-10: domain/hardening/profile code is expanded, helper failures now carry error codes, unused storage helpers/imports are removed, and the original filesystem test suites clean their own temporary trees using a symlink-aware fixture cleanup helper. The public entrypoint remains intact. The combined gate passes 151 assertions across eleven suites, with JSON/schema, CLI, and repository hygiene checks.
+
+
+BP-03: `src/filesystem.kujo` routes input, config, artifact, state, transaction,
+history, export, and directory operations through descriptor-relative native
+I/O. Nineteen application assertions exercise ancestor symlinks/junctions,
+dangling links, input/artifact/output rejection, cursor ordering, and macOS
+system aliases. Native conformance on Linux/macOS includes concurrent ancestor
+replacement; trust remains at the volume root and filesystem-owner boundary.
+Case aliases cannot bypass forced-export protection for managed evidence.
+
+BP-04: retained record JSON is capped at 2 MiB per page; native enumeration
+retains 1,001 names and fails above 100,000 directory entries. `export-stream`
+and `report-stream` emit bounded JSONL pages and require a final completion
+receipt. Ten stream assertions cover byte-budget continuation, complete export
+and report totals, rejected output paths, and corruption after partial output.
+Three-sample before/after measurements cover normal, sparse-filter, corrupt,
+and maximum-size corpora: see `docs/PERFORMANCE.md`. Sparse-filter latency is
+slightly higher; no across-the-board speedup is claimed.
+
+
+BP-08: the required runtime is source-pinned in `runtime-requirements.json`.
+The published macOS x64 Kujo 1.0.1 artifact passed its published SHA-256 check
+but fails the required runtime probe; the old minimum is withdrawn. Linux,
+macOS, and Windows pass the application gate with 201 assertions. The native
+runtime passes 14 filesystem conformance tests on Linux/macOS and nine on
+Windows, plus VM/interpreter parity and capability gating on each platform.
+The gate includes four rounds of four competing first-initialization writers,
+three killed-writer recovery stages, the Windows cmd launcher, and five offline
+Publishing House consumer-contract assertions. Git attributes preserve fixture
+checksums across platform line-ending defaults. See `docs/RUNTIME_SUPPORT.md`
+for source pins, CI evidence, and boundaries.
+
+## Current result and next session
+
+All BP-01 through BP-10 engineering items are implemented and verified. The
+current application gate passes **201 assertions** across fourteen suites plus
+seven process-level receipts. The original assertions remain in the gate;
+root implementation stays in `src/`, with intentional public entrypoints and
+project metadata at the root.
+
+This is a hardened local editorial evidence program, not an authenticated
+multi-tenant service or universal enterprise certification. Full power-loss
+recovery, external audit trust anchors, and independent semantic editorial
+quality remain outside the tested boundary. The formal security plugin scan
+was unavailable as recorded in the initial review; no certification is claimed.
+
+Continue with the [new product worklist](NEXT_SESSION_2026-09-22.md): runtime
+distribution, indexed large collections, externally anchored evidence, editorial
+quality evaluation, an operator adapter, and collaboration requirements.

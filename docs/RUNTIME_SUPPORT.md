@@ -39,3 +39,26 @@ vendored Publishing House schema and mirrors its request identity, artifact
 checksum, and no-publication-effect boundary. The schema's repository, exact
 revision, and checksum are in `fixtures/publishing_house/provenance.json`.
 This is an offline contract integration, not a live operator run.
+
+
+## Verification evidence
+
+The application suite passes 201 assertions on Linux, macOS, and Windows,
+including native Windows launcher smoke, concurrent first initialization,
+process-kill recovery, JSONL completion receipts, and the pinned consumer fixture.
+The native runtime passes 14 filesystem tests on Linux/macOS and nine on Windows,
+plus a VM/interpreter/capability parity test on each platform.
+
+- [Native conformance and full Linux/macOS gate](https://github.com/kujolang/bluepencil/actions/runs/35753820636): Windows native checks also passed; that run exposed CRLF conversion of a checksum-bound fixture, subsequently fixed with `.gitattributes`.
+- [Application matrix after Windows fixture fixes](https://github.com/kujolang/bluepencil/actions/runs/35757398282).
+- [Runtime branch artifact guard](https://github.com/kujolang/kujo/actions/runs/35754163279): canonical ignore rules synchronized; this follow-up changes no runtime code.
+
+CI caches are keyed by exact runtime commit, OS, architecture, and build profile.
+A cache is saved only after native conformance and parity pass. Application
+validation and the behavioral runtime probe run even when that verified build
+is reused. Cached builds are not a substitute for conformance on a new pin.
+
+The prior installed/sibling runtime labeled 1.4.0 lacks `list_dir_beneath` and
+fails the doctor test; use the pinned build rather than relying on its label.
+No full Kujo repository test-suite or power-loss guarantee is implied by these
+scoped runtime checks.
