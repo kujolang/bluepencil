@@ -3,10 +3,13 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 env:
-  KUJO_COMMIT: 3f20b2bbcaaba9b3f5afddbab560724b6f1d74f3
+  KUJO_COMMIT: 262b3e7517ac47edca843120dd8689c0c820d62e
   CARGO_PROFILE_RELEASE_LTO: "false"
   CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
   CARGO_PROFILE_RELEASE_OPT_LEVEL: "1"

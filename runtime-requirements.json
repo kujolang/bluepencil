@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "contract": "bluepencil-confined-adapter-v2",
   "repository": "https://github.com/kujolang/kujo",
-  "commit": "3f20b2bbcaaba9b3f5afddbab560724b6f1d74f3",
+  "commit": "262b3e7517ac47edca843120dd8689c0c820d62e",
   "version_label": "1.4.0",
   "release_status": "source-pinned; not a released Kujo version",
   "required_features": [

@@ -16,6 +16,7 @@ cd "$ROOT"
 "$KUJO_RUNTIME" run tests/workflows_test.kujo
 "$KUJO_RUNTIME" run tests/consumer_test.kujo
 "$KUJO_RUNTIME" run tests/operator_adapter_test.kujo
+"$KUJO_RUNTIME" run tests/artifact_binding_test.kujo
 "$KUJO_RUNTIME" run tests/agreement_test.kujo
 "$KUJO_RUNTIME" run tests/walkthrough_test.kujo
 "$KUJO_RUNTIME" run tests/filesystem_test.kujo
