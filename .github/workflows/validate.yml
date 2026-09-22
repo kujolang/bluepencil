@@ -132,3 +132,69 @@ jobs:
           name: bluepencil-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
           path: dist/*
           if-no-files-found: error
+  installed-platforms:
+    needs: kujo-native
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            artifact: Windows-X64
+          - os: windows-2025
+            artifact: Windows-X64
+          - os: windows-11-arm
+            artifact: Windows-X64
+          - os: macos-15
+            artifact: macOS-ARM64
+          - os: macos-15-intel
+            artifact: macOS-X64
+          - os: macos-26
+            artifact: macOS-ARM64
+          - os: macos-26-intel
+            artifact: macOS-X64
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: bluepencil-${{ matrix.artifact }}-${{ github.sha }}
+          path: bundles
+      - name: Clean macOS install with network denied
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd bundles
+          shasum -a 256 -c ./*.sha256
+          mkdir "$RUNNER_TEMP/BluePencil clean installation"
+          tar -xzf ./*.tar.gz -C "$RUNNER_TEMP/BluePencil clean installation"
+          roots=("$RUNNER_TEMP/BluePencil clean installation"/bluepencil-*)
+          test "${#roots[@]}" = 1
+          cd "${roots[0]}"
+          /usr/bin/sandbox-exec -p '(version 1) (allow default) (deny network*)' ./runtime/kujo run tests/release_install.kujo -- "$PWD"
+          ./runtime/kujo run tests/upgrade_test.kujo
+      - name: Clean Windows native launcher install with outbound traffic blocked
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archives = @(Get-ChildItem bundles/*.tar.gz)
+          if ($archives.Count -ne 1) { throw 'Expected one archive' }
+          $checksum = (Get-Content (Get-ChildItem bundles/*.sha256).FullName).Split(' ')[0]
+          if ((Get-FileHash $archives[0].FullName -Algorithm SHA256).Hash.ToLower() -ne $checksum) { throw 'Checksum mismatch' }
+          $destination = Join-Path $env:RUNNER_TEMP 'BluePencil clean installation'
+          New-Item -ItemType Directory -Path $destination | Out-Null
+          tar -xzf $archives[0].FullName -C $destination
+          if ($LASTEXITCODE -ne 0) { throw 'Extraction failed' }
+          $root = @(Get-ChildItem $destination -Directory)
+          if ($root.Count -ne 1) { throw 'Expected one installation' }
+          $runtime = Join-Path $root[0].FullName 'runtime/kujo.exe'
+          New-NetFirewallRule -DisplayName 'BluePencil installation no network' -Direction Outbound -Program $runtime -Action Block | Out-Null
+          try {
+            Set-Location $root[0].FullName
+            & $runtime run tests/release_install.kujo -- $root[0].FullName
+            if ($LASTEXITCODE -ne 0) { throw 'Clean launcher assertions failed' }
+            & $runtime run tests/upgrade_test.kujo
+            if ($LASTEXITCODE -ne 0) { throw 'Upgrade assertions failed' }
+          } finally {
+            Remove-NetFirewallRule -DisplayName 'BluePencil installation no network'
+          }
