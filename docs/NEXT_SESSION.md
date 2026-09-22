@@ -8,3 +8,5 @@
 - [x] Benchmark thousand-review corpora and streaming report generation.
 
 Completed 2026-08-14. The deterministic contracts live in `src/hardening.kujo`; `tests/hardening_test.kujo` includes the 1,000-review bounded streaming benchmark fixture.
+
+New review: [2026-09-22 readiness worklist](READINESS_REVIEW_2026-09-22.md). The checked items above describe library helpers, not completed end-to-end CLI integrations.

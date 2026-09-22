@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Made record dry runs and invalid submissions side-effect-free.
+- Preserved flags on `--version`, rejected missing option values and oversized integers, and validated Gregorian calendar dates.
+- Added bounded record scan budgets and continuation cursors; incomplete validation/health scans now fail explicitly.
+- Replaced recursive-directory locking with exclusive atomic lock files and disabled overwrite for new records/history and unforced exports.
+- Made the launcher portable, aligned the record schema with legacy compatibility, and clarified library versus CLI capabilities.
+- Added regression coverage and the September 2026 prioritized readiness worklist.
+
 - Standardized README badge ordering and repository-local artifact ignores.
 - Kept Loop Engineering evidence available locally while removing it from published source.
 
