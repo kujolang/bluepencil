@@ -76,3 +76,16 @@ jobs:
         env:
           KUJO_BIN: ${{ github.workspace }}\.runtime\kujo\target\release\kujo.exe
         run: bin\bluepencil.cmd --version --json
+      - name: Package checked candidate and test isolated installation
+        shell: bash
+        env:
+          KUJO_BIN: ${{ github.workspace }}/.runtime/kujo/target/release/kujo${{ runner.os == 'Windows' && '.exe' || '' }}
+          KUJO_SOURCE_ROOT: ${{ github.workspace }}/.runtime/kujo
+          BUNDLE_PLATFORM: ${{ runner.os == 'Windows' && 'windows-x64' || runner.os == 'macOS' && 'macos-arm64' || 'linux-x64' }}
+        run: bash scripts/package.sh
+      - name: Upload checksummed candidate bundles
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: bluepencil-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          path: dist/*
+          if-no-files-found: error

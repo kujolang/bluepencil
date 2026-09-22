@@ -1,4 +1,9 @@
 #!/bin/sh
 set -eu
-KUJO_BIN=${KUJO_BIN:-kujo}
-exec "$KUJO_BIN" run "$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/bluepencil.kujo" -- "$@"
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+if [ -z "${KUJO_BIN:-}" ]; then
+  if [ -x "$ROOT/runtime/kujo" ]; then KUJO_BIN="$ROOT/runtime/kujo"
+  elif [ -f "$ROOT/runtime/kujo.exe" ]; then KUJO_BIN="$ROOT/runtime/kujo.exe"
+  else KUJO_BIN=kujo; fi
+fi
+exec "$KUJO_BIN" run "$ROOT/bluepencil.kujo" --isolated-imports -- "$@"
