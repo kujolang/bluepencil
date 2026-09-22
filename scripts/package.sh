@@ -32,6 +32,10 @@ tar -xzf "$ROOT/dist/$name.tar.gz" -C "$stage/installed"
   unset KUJO_BIN KUJO_MODULE_PATH KUJO_ISOLATED_IMPORTS
   "$stage/installed/$name/bin/bluepencil" --version --json > version.json
   "$stage/installed/$name/bin/bluepencil" doctor --state "$stage/install-state" --json > doctor.json
-  "$stage/installed/$name/runtime/kujo$extension" run "$stage/installed/$name/scripts/runtime_probe.kujo"
+  "$stage/installed/$name/bin/bluepencil" review --state "$stage/install-state" --input "$stage/installed/$name/fixtures/core.json" --actor installation-smoke --id review-installation --json > review.json
+  "$stage/installed/$name/bin/bluepencil" validate --state "$stage/install-state" --id review-installation --json > validated.json
+  # The standalone development probe imports tests.support from its project.
+  cd "$stage/installed/$name"
+  ./runtime/kujo"$extension" run scripts/runtime_probe.kujo
 )
 printf 'Packaged and smoke-tested %s\n' "$name"
