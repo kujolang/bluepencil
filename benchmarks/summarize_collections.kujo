@@ -9,18 +9,23 @@ if generation["records"] != 95000 || build["records"] != 95000 { throw("incomple
 mut measurements := []
 for method in ["flat","segments"] {
     for filter in ["all","sparse"] {
-        mut samples := []
+        mut samples := []; mut latencies := []; mut rss_samples := []
         for number in [1,2,3] {
             let sample := parse_json(read_text(receipt_root + "/" + method + "-" + filter + "-" + to_string(number) + ".json",8192))
             mut expected_records := 95000; mut expected_sum := 4512452500
             if filter == "sparse" { expected_records = 95; expected_sum = 4465000 }
             if sample["records"] != expected_records || sample["ordinal_sum"] != expected_sum { throw("incomplete or mismatched measured export") }
             samples = push(samples,sample)
+            latencies = push(latencies,sample["wall_ms"]); rss_samples = push(rss_samples,sample["peak_rss_bytes"])
         }
-        measurements = push(measurements,{"implementation":method,"filter":filter,"samples":samples})
+        measurements = push(measurements,{"implementation":method,"filter":filter,"median_wall_ms":sort(latencies)[1],"median_peak_rss_bytes":sort(rss_samples)[1],"samples":samples})
     }
 }
 let checksum_line := trim(read_text(receipt_root + "/runtime.sha256",8192))
-let output := {"schema_version":"1.0.0","fixture_records":95000,"recorded_at":now_utc(),"runtime_sha256":split(checksum_line," ")[0],"runtime_source":"ee6ce1dabd6629be33b3241b0ab9b5a970256c56 (pre-adapter runtime, same frozen executable for both implementations)","benchmark_source_sha256":sha256(read_text("benchmarks/collections.kujo",1048576)),"generation":generation,"snapshot_build":build,"measurements":measurements,"interpretation":"Three warm-filesystem fresh-process samples; concurrent host builds; diagnostic comparison, not an SLO. Every selected record serialized to JSONL and discarded by the same output sink."}
+mut runtime_source := "unverified source revision"; mut host := null; mut disk := null
+if file_exists(receipt_root + "/runtime-source.txt") { runtime_source = trim(read_text(receipt_root + "/runtime-source.txt",8192)) }
+if file_exists(receipt_root + "/host.json") { host = parse_json(read_text(receipt_root + "/host.json",8192)) }
+if file_exists(receipt_root + "/disk-kib.txt") { disk = trim(read_text(receipt_root + "/disk-kib.txt",8192)) }
+let output := {"schema_version":"1.0.0","fixture_records":95000,"recorded_at":now_utc(),"runtime_sha256":split(checksum_line," ")[0],"runtime_source":runtime_source,"host":host,"disk_usage_kib":disk,"benchmark_source_sha256":sha256(read_text("benchmarks/collections.kujo",1048576)),"generation":generation,"snapshot_build":build,"measurements":measurements,"interpretation":"Three warm-filesystem fresh-process samples; diagnostic comparison, not an SLO. Every selected record serialized to JSONL and discarded by the same output sink. See host metadata for contention and profiling conditions."}
 write_text(arguments[1],to_json_pretty(output),true)
 print("Verified complete-export measurements written to " + arguments[1])

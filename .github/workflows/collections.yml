@@ -1,0 +1,63 @@
+name: collection-evaluation
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/bluepencil-next-session]
+    paths: ['benchmarks/**', '.github/workflows/collections.yml']
+concurrency:
+  group: collections-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+env:
+  KUJO_COMMIT: 262b3e7517ac47edca843120dd8689c0c820d62e
+  CARGO_PROFILE_RELEASE_LTO: 'false'
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '16'
+  CARGO_PROFILE_RELEASE_OPT_LEVEL: '1'
+jobs:
+  complete-exports:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          repository: kujolang/kujo
+          ref: ${{ env.KUJO_COMMIT }}
+          path: .runtime/kujo
+      - uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921
+        with:
+          toolchain: stable
+      - name: Reuse conformance-checked runtime
+        id: runtime-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: .runtime/kujo/target
+          key: runtime-Linux-X64-${{ env.KUJO_COMMIT }}-opt1-v1
+      - name: Build exact source pin when cache is unavailable
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: cargo build --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml
+      - name: Measure every record with three fresh processes per reader/filter
+        shell: bash
+        env:
+          KUJO_BIN: ${{ github.workspace }}/.runtime/kujo/target/release/kujo
+          COLLECTION_RUNTIME_SOURCE: '262b3e7517ac47edca843120dd8689c0c820d62e; no-default-features; opt-level 1; LTO false; codegen-units 16'
+        run: |
+          "$KUJO_BIN" run scripts/runtime_probe.kujo
+          mkdir -p .loop-engineering/collection-benchmark
+          printf '%s\n' '{"runner":"ubuntu-24.04 GitHub-hosted","architecture":"x86_64","conditions":"One benchmark process at a time in a dedicated job; warm filesystem caches and fresh processes. No other workload is started by this job. Shared CI hardware noise remains possible."}' > .loop-engineering/collection-benchmark/host.json
+          uname -a > .loop-engineering/collection-benchmark/host.txt
+          lscpu >> .loop-engineering/collection-benchmark/host.txt
+          bash benchmarks/collections.sh
+          "$KUJO_BIN" run benchmarks/summarize_collections.kujo -- .loop-engineering/collection-benchmark .loop-engineering/collection-benchmark/summary.json
+      - name: Preserve complete measurements and host provenance
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: collection-evaluation-${{ github.sha }}
+          path: |
+            .loop-engineering/collection-benchmark/*.json
+            .loop-engineering/collection-benchmark/*.txt
+            .loop-engineering/collection-benchmark/runtime.sha256
+          include-hidden-files: true
+          if-no-files-found: error
