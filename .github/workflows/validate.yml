@@ -16,6 +16,8 @@ env:
 jobs:
   kujo-native:
     runs-on: ${{ matrix.os }}
+    env:
+      RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C target-feature=+crt-static' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -37,16 +39,16 @@ jobs:
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: .runtime/kujo/target
-          key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ env.KUJO_COMMIT }}-opt1-v1
+          key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ env.KUJO_COMMIT }}-opt1-v1${{ runner.os == 'Windows' && '-crt-static' || '' }}
       - name: Configure OpenSSL for Windows
         if: runner.os == 'Windows' && steps.runtime-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           if (-not $env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT = "C:\vcpkg" }
-          vcpkg install openssl:x64-windows-static-md
+          vcpkg install openssl:x64-windows-static
           "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "VCPKG_DEFAULT_TRIPLET=x64-windows-static-md" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "OPENSSL_DIR=$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static-md" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "VCPKG_DEFAULT_TRIPLET=x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "OPENSSL_DIR=$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Build pinned Kujo runtime
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: cargo build --release --no-default-features --locked --manifest-path .runtime/kujo/Cargo.toml
@@ -67,7 +69,7 @@ jobs:
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: .runtime/kujo/target
-          key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ env.KUJO_COMMIT }}-opt1-v1
+          key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ env.KUJO_COMMIT }}-opt1-v1${{ runner.os == 'Windows' && '-crt-static' || '' }}
       - name: Validate
         shell: bash
         env:
@@ -79,6 +81,18 @@ jobs:
         env:
           KUJO_BIN: ${{ github.workspace }}\.runtime\kujo\target\release\kujo.exe
         run: bin\bluepencil.cmd --version --json
+      - name: Windows distribution has no Visual C++ redistributable dependency
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $inspector = Get-ChildItem "$installation\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $inspector) { throw "PE dependency inspector unavailable" }
+          $dependencies = & $inspector.FullName /dependents .runtime/kujo/target/release/kujo.exe
+          if ($LASTEXITCODE -ne 0) { throw "PE dependency inspection failed" }
+          $dependencies | Write-Output
+          if ($dependencies -match '(?i)VCRUNTIME|MSVCP[0-9]|ucrtbased') { throw "Unexpected redistributable runtime dependency" }
       - name: Package checked candidate and test isolated installation
         shell: bash
         env:
