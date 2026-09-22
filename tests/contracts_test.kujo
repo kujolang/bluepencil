@@ -1,3 +1,4 @@
+from tests.support import temp_path
 from src.core import dispatch, validate_record
 from src.args import parse_args
 from src.profile import profile
@@ -5,7 +6,7 @@ from src.domain import validate_command
 from src.hardening import score_blinded_run, bundle_upgrade_compatible, sign_bundle, format_rule_pack, accessibility_conformance, streaming_review_report, local_model_conformance
 mut passed := 0; mut failed := 0
 func check(ok,label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
-root := "/tmp/bluepencil-contracts-" + uuid_v4(); create_dir(root)
+root := temp_path("bluepencil-contracts-"); create_dir(root)
 config_path := root + "/config.json"
 for config in [{"state":[]},{"actor":4},{"limit":"10"},{"limit":true},{"limit":0},{"unexpected":true}] {
     write_file(config_path,to_json(config),true)

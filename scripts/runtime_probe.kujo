@@ -1,0 +1,13 @@
+from tests.support import cleanup
+root := create_temp_dir(".",".bluepencil-runtime-")
+mut supported := false
+try {
+    write_file_atomic_beneath(root,"records/probe.json","{}",false)
+    page := list_dir_beneath(root,"records","",".json",1,10)
+    text := read_file_beneath(root,"records/probe.json",2)
+    schema := json_schema_validate(parse_json(text),{"type":"object"})
+    supported = len(page["names"]) == 1 && schema["valid"] && byte_length("é") == 2
+} except error { supported = false }
+cleanup(root)
+print(to_json({"supported":supported,"required_contract":"bluepencil-confined-pages-v1"}))
+if !supported { exit(1) }

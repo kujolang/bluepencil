@@ -11,6 +11,8 @@ export func profile() {
     "default_state": ".bluepencil",
     "description": "Editorial quality and calibration records across eight dimensions, blockers, verdicts, and reviewer disagreement.",
     "commands": [
+        "export-stream",
+        "report-stream",
         "calibration-score",
         "calibration-trend",
         "bundle-verify",
@@ -49,6 +51,8 @@ export func profile() {
         "adapter-check"
     ],
     "read_commands": [
+        "export-stream",
+        "report-stream",
         "calibration-score",
         "calibration-trend",
         "bundle-verify",

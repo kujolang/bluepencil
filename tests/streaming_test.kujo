@@ -1,0 +1,34 @@
+from src.storage import initialize, list_records
+from tests.support import cleanup
+mut passed := 0; mut failed := 0
+func check(ok,label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
+if len(args()) != 1 { eprint("streaming_test requires runtime path"); exit(2) }
+runtime := args()[0]
+root := create_temp_dir(".",".bluepencil-stream-"); root = path_absolute(root)
+initialize(root,{"tool":"bluepencil","contract_version":"1.0.0"})
+mut padding := "x"
+while byte_length(padding) < 700000 { padding = padding + padding }
+padding = substring(padding,0,700000)
+mut index := 0
+while index < 4 {
+    id := "review-" + to_string(100 + index)
+    record := {"id":id,"record_type":"review","payload":{"padding":padding}}
+    write_file(root + "/records/" + id + ".json",to_json(record),true); index = index + 1
+}
+page := list_records(root,"","",1000)
+check(page["truncated"] && page["retained_bytes"] <= 2097152 && len(page["records"]) == 2,"aggregate page byte budget")
+tail := list_records(root,"",page["next_cursor"],1000)
+check(!tail["truncated"] && len(tail["records"]) == 2,"byte budget cursor loses no records")
+result := spawn_process([runtime,"run","bluepencil.kujo","--","export-stream","--state",root,"--limit","1","--json"],{"timeout_ms":60000,"max_output_bytes":4194304})
+check(result.exitcode == 0 && !result.stdout_truncated,"stream exits successfully within output bound")
+lines := split(trim(result.stdout),"\n")
+check(len(lines) == 5,"one record per JSONL line plus receipt")
+receipt := parse_json(lines[len(lines)-1])
+check(receipt["ok"] && receipt["data"]["complete"] && receipt["data"]["records"] == 4,"final completion receipt")
+write_file(root + "/records/review-999.json","{",true)
+failed_stream := spawn_process([runtime,"run","bluepencil.kujo","--","export-stream","--state",root,"--limit","1","--json"],{"timeout_ms":60000,"max_output_bytes":4194304})
+check(failed_stream.exitcode != 0,"corruption fails stream after partial output")
+failed_lines := split(trim(failed_stream.stdout),"\n"); final := parse_json(failed_lines[len(failed_lines)-1])
+check(!final["ok"] && !final["data"]["complete"],"partial stream cannot claim completion")
+cleanup(root)
+print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

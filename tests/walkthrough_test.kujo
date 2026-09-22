@@ -1,7 +1,7 @@
 from examples.editorial_walkthrough.workflow import run_walkthrough
-from tests.support import cleanup
+from tests.support import cleanup, temp_path
 from src.common import canonical_json
-root := "/tmp/bluepencil-walkthrough-test-" + uuid_v4()
+root := temp_path("bluepencil-walkthrough-test-")
 result := run_walkthrough(root)
 if !result["ok"] { eprint(to_json(result)); cleanup(root); exit(1) }
 expected := parse_json(read_file("examples/editorial_walkthrough/expected.json"))

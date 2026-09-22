@@ -1,0 +1,36 @@
+from src.filesystem import read_text, write_text, directory_page, rooted_path, ensure_directory
+from src.core import dispatch
+from src.args import parse_args
+from tests.support import link_directory, cleanup
+mut passed := 0; mut failed := 0
+func check(ok,label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
+func rejects_read(path) { try { read_text(path,100); return false } except error { return true } }
+func rejects_write(path) { try { write_text(path,"replacement",true); return false } except error { return true } }
+root := create_temp_dir(".",".bluepencil-fs-")
+inside := root + "/inside"; outside := root + "/outside"
+ensure_directory(inside); ensure_directory(outside)
+write_text(outside + "/secret.txt","outside sentinel",false)
+check(read_text(outside + "/secret.txt",100) == "outside sentinel","confined read")
+check(rejects_read(outside + "/secret.txt/../secret.txt"),"lexical traversal rejected")
+check(rejects_write(root + "/../escape"),"write traversal rejected")
+check(rejects_read(outside + "/secret.txt/child"),"regular file cannot be an ancestor")
+func short_read(path) { try { read_text(path,2); return false } except error { return true } }
+check(short_read(outside + "/secret.txt"),"same-handle byte limit")
+linked := link_directory(path_absolute(outside),inside + "/linked")
+if linked.exitcode == 0 {
+    check(rejects_read(inside + "/linked/secret.txt"),"ancestor symlink read rejected")
+    check(rejects_write(inside + "/linked/secret.txt"),"ancestor symlink write rejected")
+    check(!dispatch("init",parse_args(["--state",inside + "/linked/new-state"],[]))["ok"],"state beneath symlink rejected")
+    check(read_text(outside + "/secret.txt",100) == "outside sentinel","outside content preserved")
+    dangling := link_directory(path_absolute(root) + "/missing",inside + "/dangling")
+    if dangling.exitcode == 0 { check(rejects_write(inside + "/dangling/created"),"dangling ancestor rejected"); delete_file(inside + "/dangling") }
+}
+write_text(inside + "/review-a.json","{}",false); write_text(inside + "/review-a-b.json","{}",false)
+page := directory_page(inside,"",".json",1)
+tail := directory_page(inside,page["next_cursor"],".json",1)
+check(page["names"][0] == "review-a.json" && tail["names"][0] == "review-a-b.json","bounded native cursor ordering")
+// The macOS root-owned alias is normalized; arbitrary symlinks remain rejected.
+resolved := rooted_path("/tmp/bluepencil-probe")
+check(resolved["relative"] == "private/tmp/bluepencil-probe" || resolved["relative"] == "tmp/bluepencil-probe","platform temporary directory alias")
+cleanup(root)
+print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

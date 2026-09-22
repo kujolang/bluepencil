@@ -1,9 +1,10 @@
+from tests.support import temp_path
 from src.storage import initialize, save_new
 from src.transaction import prepare_transaction, recover_transaction, inspect_transaction, read_transaction
 from src.audit import audit_state
 mut passed := 0; mut failed := 0
 func check(ok,label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
-root := "/tmp/bluepencil-recovery-" + uuid_v4()
+root := temp_path("bluepencil-recovery-")
 initialize(root,{"tool":"bluepencil","contract_version":"1.0.0"})
 func fixture(id) { return {"schema_version":"1.0.0","tool_version":"0.2.0","contract_version":"1.0.0","id":id,"command":"review","record_type":"review","actor":"fixture","created_at":"2026-09-22T00:00:00Z","provenance":[],"payload":parse_json(read_file("fixtures/core.json"))} }
 for stage in ["intent", "record", "event"] {

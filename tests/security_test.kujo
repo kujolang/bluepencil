@@ -1,10 +1,10 @@
-from tests.support import cleanup
+from tests.support import link_directory, cleanup, temp_path
 from src.core import dispatch
 from src.args import parse_args
 mut passed:=0;mut failed:=0
 func check(ok,label){if ok{passed=passed+1}else{failed=failed+1;eprint("FAIL: "+label)}}
 func opts(v){return parse_args(v,["json","dry-run","force"])}
-root:="/tmp/bluepencil-security-"+uuid_v4()
+root:=temp_path("bluepencil-security-")
 check(!dispatch("init",opts(["--state",root+"/../escape"]))["ok"],"state traversal")
 secret:=root+"-secret.json";base:=parse_json(read_file("fixtures/core.json"));base["provider_token"]="nope";write_file(secret,to_json(base),true)
 check(!dispatch("review",opts(["--state",root,"--input",secret,"--actor","reviewer"]))["ok"],"secret rejection")
@@ -14,7 +14,7 @@ created:=dispatch("review",opts(["--state",root,"--input","fixtures/core.json","
 create_dir(root+"/locks/review-locked.lock");check(!dispatch("review",opts(["--state",root,"--input","fixtures/core.json","--actor","reviewer","--id","review-locked","--timestamp","2026-08-14T05:00:01Z"]))["ok"],"lock conflict");os_rmdir(root+"/locks/review-locked.lock")
 delete_file(secret)
 foreign_state:=root+"-foreign";check(dispatch("init",opts(["--state",foreign_state]))["ok"],"foreign state baseline");write_file(foreign_state+"/metadata.json","{\"schema_version\":\"1.0.0\",\"tool\":\"other-tool\",\"contract_version\":\"1.0.0\"}",true);check(!dispatch("init",opts(["--state",foreign_state]))["ok"],"incompatible state rejected")
-symlink_state:=root+"-symlink";outside_state:=root+"-outside";create_dir(symlink_state);create_dir(outside_state);linked:=spawn_process(["ln","-s",outside_state,symlink_state+"/records"],{"timeout_ms":5000,"max_output_bytes":4096});if linked.exitcode==0{check(!dispatch("init",opts(["--state",symlink_state]))["ok"],"managed directory symlink rejected")}
+symlink_state:=root+"-symlink";outside_state:=root+"-outside";create_dir(symlink_state);create_dir(outside_state);linked:=link_directory(outside_state,symlink_state+"/records");if linked.exitcode==0{check(!dispatch("init",opts(["--state",symlink_state]))["ok"],"managed directory symlink rejected")}
 cleanup(root)
 cleanup(foreign_state); cleanup(symlink_state); cleanup(outside_state)
 print(to_string(passed)+" passed; "+to_string(failed)+" failed");if failed>0{exit(1)}

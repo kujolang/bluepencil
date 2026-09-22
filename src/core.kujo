@@ -1,4 +1,6 @@
+from src.filesystem import read_text, write_text, directory_page, digest_file, rooted_path
 from src.args import parse_args
+from src.streaming import stream_records
 from src.reporting import report_page, compare_judgments
 from src.workflows import evaluate_workflow
 from src.audit import audit_state, list_history
@@ -31,7 +33,7 @@ func load_config(path) {
     if path == "" { return {"ok": true, "value": {}} }
     if !path_is_file(path) || path_is_symlink(path) { return {"ok": false, "code": "config_not_found", "error": "config must be a regular file"} }
     if file_size(path) > 65536 { return {"ok": false, "code": "config_too_large", "error": "config exceeds 64 KiB"} }
-    config_result := parse_object(read_file(path), "config"); if !config_result["ok"] { return config_result }
+    config_result := parse_object(read_text(path,65536), "config"); if !config_result["ok"] { return config_result }
     for key in keys(config_result["value"]) { if !has(["state", "actor", "limit"], key) { return {"ok": false, "code": "unknown_config_key", "error": "unknown config key: " + key} } }
     config := config_result["value"]
     if has_key(config, "state") == 1 && (type(config["state"]) != "string" || trim(config["state"]) == "" || len(config["state"]) > 4096) { return {"ok":false,"code":"invalid_config","error":"config state must be bounded nonempty text"} }
@@ -51,7 +53,7 @@ func read_payload(parsed) {
     if path == "" { return {"ok": true, "value": {"schema_version": "1.0.0"}} }
     if !path_is_file(path) || path_is_symlink(path) { return {"ok": false, "code": "input_not_found", "error": "input must be a regular file"} }
     if file_size(path) > 1048576 { return {"ok": false, "code": "input_too_large", "error": "input exceeds 1 MiB"} }
-    parsed_payload := parse_object(read_file(path), "input"); if !parsed_payload["ok"] { return parsed_payload }
+    parsed_payload := parse_object(read_text(path,1048576), "input"); if !parsed_payload["ok"] { return parsed_payload }
     payload := parsed_payload["value"]
     schema := get(payload, "schema_version", "1.0.0")
     if type(schema) != "string" || !regex_match(schema, "^1\\.[0-9]+\\.[0-9]+$") { return {"ok": false, "code": "incompatible_schema", "error": "input schema major must be 1"} }
@@ -65,7 +67,8 @@ func artifact_metadata(path) {
     if !path_is_file(path) || path_is_symlink(path) { return {"ok": false, "code": "unsafe_artifact", "error": "artifact must be a regular non-symlink file"} }
     bytes := file_size(path)
     if bytes > 67108864 { return {"ok": false, "code": "artifact_too_large", "error": "artifact exceeds 64 MiB"} }
-    return {"ok": true, "value": {"path": path, "sha256": sha256_file(path), "bytes": bytes}}
+    digest := digest_file(path,67108864)
+    return {"ok": true, "value": {"path": path, "sha256": digest["sha256"], "bytes": digest["bytes"]}}
 }
 
 func create_record(command, parsed, config, p) {
@@ -113,30 +116,46 @@ export func validate_record(record, p) {
         path := get(artifact, "path", "")
         if path == "" || !path_is_file(path) || path_is_symlink(path) { return {"ok": false, "code": "artifact_missing", "error": "bound artifact is missing or unsafe"} }
         if file_size(path) > 67108864 || get(artifact, "bytes", -1) != file_size(path) { return {"ok": false, "code": "artifact_size_drift", "error": "bound artifact size is invalid or has drifted"} }
-        if sha256_file(path) != get(artifact, "sha256", "") { return {"ok": false, "code": "checksum_drift", "error": "bound artifact checksum drift detected"} }
+        digest := digest_file(path,67108864)
+        if digest["bytes"] != artifact["bytes"] || digest["sha256"] != get(artifact, "sha256", "") { return {"ok": false, "code": "checksum_drift", "error": "bound artifact checksum drift detected"} }
     }
     error := validate_command(record["command"], record["payload"], get(record, "artifact", null))
     if error != "" { return {"ok": false, "code": "domain_validation", "error": error} }
     return {"ok": true}
 }
 
-func export_result(value, parsed, p) {
+func export_result(value, parsed, p, state) {
     output := flag(parsed, "output", "")
     if output == "" { return {"ok": true, "value": value} }
+    destination := rooted_path(output); source := rooted_path(state)
+    if destination["root"] == source["root"] {
+        for managed in ["records","history","transactions","locks"] {
+            if starts_with(destination["relative"],source["relative"] + "/" + managed + "/") { return {"ok":false,"code":"protected_output","error":"export cannot overwrite managed state"} }
+        }
+        if destination["relative"] == source["relative"] + "/metadata.json" { return {"ok":false,"code":"protected_output","error":"export cannot replace state metadata"} }
+    }
     if file_exists(output) && path_is_symlink(output) { return {"ok": false, "code": "unsafe_output", "error": "output symlinks are not allowed"} }
     if file_exists(output) && flag(parsed, "force", false) != true { return {"ok": false, "code": "output_exists", "error": "output exists; use --force only for intentional safe replacement"} }
-    rendered := to_json_pretty(envelope(true, value, null, null, p["version"], p["contract_version"])) + "\n"
-    if len(rendered) > 8388608 { return {"ok": false, "code": "output_too_large", "error": "output exceeds 8 MiB"} }
-    try { write_file_atomic(output, rendered, flag(parsed, "force", false) == true) } except error { return {"ok": false, "code": "write_failed", "error": "atomic export write failed"} }
+    rendered := to_json(envelope(true, value, null, null, p["version"], p["contract_version"])) + "\n"
+    if byte_length(rendered) > 8388608 { return {"ok": false, "code": "output_too_large", "error": "output exceeds 8 MiB"} }
+    try { write_text(output, rendered, flag(parsed, "force", false) == true) } except error { return {"ok": false, "code": "write_failed", "error": "atomic export write failed"} }
     return {"ok": true, "value": {"output": output, "bytes": len(rendered), "sha256": sha256(rendered)}}
 }
 
-export func dispatch(command, parsed) {
+func dispatch_inner(command, parsed) {
     if !has(profile()["commands"], command) { return {"ok": false, "code": "unknown_command", "error": "unknown command: " + command} }
     if len(parsed["errors"]) > 0 { return {"ok": false, "code": "invalid_arguments", "error": parsed["errors"][0]} }
     p := profile(); config_result := load_config(flag(parsed, "config", "")); if !config_result["ok"] { return config_result }; config := config_result["value"]
     state := setting(parsed, config, "state", p["default_state"])
     if command == "init" { return initialize(state, {"schema_version": "1.0.0", "tool": p["slug"], "tool_version": p["version"], "contract_version": p["contract_version"], "created_at": now_utc()}) }
+    if command == "export-stream" || command == "report-stream" {
+        if flag(parsed,"output","") != "" { return {"ok":false,"code":"stdout_required","error":"streaming uses JSONL stdout; redirect it and require the final completion receipt"} }
+        limit := bounded_int(setting(parsed,config,"limit",100),100,1,1000)
+        if !limit["ok"] { return limit }
+        after := flag(parsed,"after","")
+        if after != "" && !safe_cursor(after) { return {"ok":false,"code":"unsafe_cursor","error":"invalid stream cursor"} }
+        return stream_records(state,flag(parsed,"type",""),after,limit["value"],command == "report-stream")
+    }
     if has(p["workflow_commands"], command) {
         input := read_payload(parsed)
         if !input["ok"] { return input }
@@ -156,7 +175,7 @@ export func dispatch(command, parsed) {
         if !limit["ok"] { return limit }
         return list_history(state, flag(parsed, "after", ""), limit["value"])
     }
-    if command == "version" { return {"ok": true, "value": {"tool": p["slug"], "version": p["version"], "contract_version": p["contract_version"], "supported_record_versions": get(p, "record_versions", [p["version"]]), "minimum_kujo": "1.0.1"}} }
+    if command == "version" { return {"ok": true, "value": {"tool": p["slug"], "version": p["version"], "contract_version": p["contract_version"], "supported_record_versions": get(p, "record_versions", [p["version"]]), "minimum_kujo": "1.4.0", "required_runtime_contract": "bluepencil-confined-pages-v1"}} }
     if command == "doctor" {
         state_error := validate_state_path(state); listing := {"records": [], "warnings": [], "truncated": false}
         if state_error == "" { listing = list_records(state, "", "", 1000) }
@@ -165,7 +184,7 @@ export func dispatch(command, parsed) {
         if state_error != "" { code = "unsafe_state"; error = state_error }
         if state_error == "" && len(listing["warnings"]) > 0 { code = "corrupt_state"; error = "one or more records are unreadable" }
         if listing["truncated"] { code = "health_incomplete"; error = "health scan limit reached" }
-        return {"ok": healthy, "code": code, "error": error, "value": {"healthy": healthy, "tool": p["slug"], "version": p["version"], "minimum_kujo": "1.0.1", "state": state, "record_count": len(listing["records"]), "truncated": listing["truncated"], "corrupt_records": listing["warnings"], "limits": {"input_bytes": 1048576, "record_bytes": 1048576, "artifact_bytes": 67108864, "list_records": 1000}, "limitations": p["limitations"]}}
+        return {"ok": healthy, "code": code, "error": error, "value": {"healthy": healthy, "tool": p["slug"], "version": p["version"], "minimum_kujo": "1.4.0", "required_runtime_contract": "bluepencil-confined-pages-v1", "state": state, "record_count": len(listing["records"]), "truncated": listing["truncated"], "corrupt_records": listing["warnings"], "limits": {"input_bytes": 1048576, "record_bytes": 1048576, "artifact_bytes": 67108864, "list_records": 1000}, "limitations": p["limitations"]}}
     }
     if has(p["show_commands"], command) {
         id := flag(parsed, "id", ""); if id == "" { return {"ok": false, "code": "id_required", "error": "show requires --id"} }
@@ -203,9 +222,14 @@ export func dispatch(command, parsed) {
         after := flag(parsed, "after", ""); if after != "" && !safe_cursor(after) { return {"ok": false, "code": "unsafe_cursor", "error": "pagination cursor must be a safe filename cursor"} }
         listing := list_records(state, flag(parsed, "type", ""), after, limit_result["value"])
         if len(listing["warnings"]) > 0 && listing["warnings"][0]["code"] == "unsafe_state" { return {"ok": false, "code": "unsafe_state", "error": listing["warnings"][0]["error"]} }
-        return export_result({"schema_version": "1.0.0", "tool": p["slug"], "records": listing["records"], "warnings": listing["warnings"], "truncated": listing["truncated"], "next_cursor": get(listing, "next_cursor", after)}, parsed, p)
+        return export_result({"schema_version": "1.0.0", "tool": p["slug"], "records": listing["records"], "warnings": listing["warnings"], "truncated": listing["truncated"], "next_cursor": get(listing, "next_cursor", after)}, parsed, p, state)
     }
     return create_record(command, parsed, config, p)
+}
+
+export func dispatch(command, parsed) {
+    try { return dispatch_inner(command,parsed) }
+    except error { return {"ok":false,"code":"operation_failed","error":"bounded filesystem or contract operation failed: " + to_string(error)} }
 }
 
 func usage(p) {
@@ -223,7 +247,7 @@ export func main(argv) {
     if len(parsed["positionals"]) > 0 { eprint(p["name"] + ": unexpected positional argument: " + parsed["positionals"][0]); return 2 }
     result := dispatch(command, parsed)
     output := envelope(result["ok"], get(result, "value", null), get(result, "error", null), get(result, "code", null), p["version"], p["contract_version"])
-    if flag(parsed, "json", false) { print(to_json_pretty(output)) }
+    if flag(parsed, "json", false) || command == "export-stream" || command == "report-stream" { print(to_json(output)) }
     else if result["ok"] { print(p["name"] + ": ok\n" + to_json_pretty(get(result, "value", null))) }
     else { eprint(p["name"] + ": " + get(result, "error", "operation failed") + " [" + get(result, "code", "unknown") + "]") }
     if result["ok"] { return 0 }

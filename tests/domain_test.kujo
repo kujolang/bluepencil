@@ -1,10 +1,10 @@
-from tests.support import cleanup
+from tests.support import cleanup, temp_path
 from src.core import dispatch
 from src.args import parse_args
 mut passed:=0;mut failed:=0
 func check(ok,label){if ok{passed=passed+1}else{failed=failed+1;eprint("FAIL: "+label)}}
 func opts(v){return parse_args(v,["json","dry-run","force"])}
-root:="/tmp/bluepencil-domain-"+uuid_v4();base:=parse_json(read_file("fixtures/core.json"))
+root:=temp_path("bluepencil-domain-");base:=parse_json(read_file("fixtures/core.json"))
 base["verdict"]="pass";base["blocking_findings"]=[{"code":"EVIDENCE_MISSING","message":"material claim unsupported"}];blocked:=root+"-blocked.json";write_file(blocked,to_json(base),true)
 check(!dispatch("review",opts(["--state",root,"--input",blocked,"--actor","reviewer"]))["ok"],"blocker cannot be averaged away")
 missing:=parse_json(read_file("fixtures/core.json"));missing["dimensions"]={"craft":"STRONG"};missing_path:=root+"-missing.json";write_file(missing_path,to_json(missing),true)

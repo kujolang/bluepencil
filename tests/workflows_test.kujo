@@ -1,3 +1,4 @@
+from tests.support import temp_path
 from src.core import dispatch
 from src.args import parse_args
 from src.hardening import sign_bundle
@@ -6,7 +7,7 @@ from src.storage import save_new, initialize
 mut passed := 0; mut failed := 0
 func check(ok,label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
 func opts(values) { return parse_args(values,["json"]) }
-root := "/tmp/bluepencil-workflows-" + uuid_v4()
+root := temp_path("bluepencil-workflows-")
 initialize(root,{"tool":"bluepencil","contract_version":"1.0.0"})
 input := root + "/input.json"
 func evaluate(command,payload) { write_file(input,to_json(payload),true); return dispatch(command,opts(["--state",root,"--input",input])) }
@@ -47,6 +48,8 @@ check(tail["page_summary"]["blocking_findings"] == 1 && tail["page_summary"]["ve
 first := dispatch("history",opts(["--state",root,"--limit","1"]))["value"]
 second := dispatch("history",opts(["--state",root,"--after",first["next_cursor"]]))["value"]
 check(first["truncated"] && len(second["events"]) == 1 && first["events"][0]["event_id"] != second["events"][0]["event_id"],"history pagination")
+protected := dispatch("export",parse_args(["--state",root,"--output",root + "/records/review-left.json","--force"],["force"]))
+check(!protected["ok"] && protected["code"] == "protected_output","forced export cannot overwrite evidence")
 for dir in ["records","history","locks","transactions"] { for name in list_dir(root + "/" + dir) { delete_file(root + "/" + dir + "/" + name) }; os_rmdir(root + "/" + dir) }
 for file in ["metadata.json","input.json","key.json"] { delete_file(root + "/" + file) }; os_rmdir(root)
 print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

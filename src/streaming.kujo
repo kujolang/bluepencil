@@ -1,0 +1,26 @@
+from src.common import get
+from src.storage import list_records
+from src.reporting import report_page
+
+// Stream one bounded page at a time. Consumers must require the final completion
+// receipt: a failed scan may have already emitted earlier JSONL records.
+export func stream_records(state, kind, after, limit, summary_only) {
+    mut cursor := after; mut count := 0; mut pages := 0
+    mut verdicts := {}; mut blockers := 0; mut invalid := 0
+    loop {
+        page := list_records(state,kind,cursor,limit)
+        if len(page["warnings"]) > 0 { return {"ok":false,"code":"stream_incomplete","error":"record scan failed; discard the partial stream","value":{"complete":false,"records_emitted":count,"warnings":page["warnings"]}} }
+        summary := report_page(page)["page_summary"]
+        for verdict in keys(summary["verdicts"]) { verdicts[verdict] = get(verdicts,verdict,0) + summary["verdicts"][verdict] }
+        blockers = blockers + summary["blocking_findings"]
+        invalid = invalid + summary["invalid_reviews"]
+        if !summary_only { for record in page["records"] { print(to_json({"schema_version":"1.0.0","event":"record","record":record})) } }
+        count = count + len(page["records"]); pages = pages + 1
+        if summary_only { print(to_json({"schema_version":"1.0.0","event":"report_page","page":pages,"summary":summary})) }
+        if !page["truncated"] { break }
+        next := get(page,"next_cursor",cursor)
+        if next == cursor { return {"ok":false,"code":"stream_stalled","error":"scan could not advance its cursor","value":{"complete":false,"records_emitted":count}} }
+        cursor = next
+    }
+    return {"ok":true,"value":{"complete":true,"records":count,"pages":pages,"verdicts":verdicts,"blocking_findings":blockers,"invalid_reviews":invalid}}
+}

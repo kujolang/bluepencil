@@ -1,3 +1,4 @@
+from src.filesystem import is_link, read_text, write_text, directory_page, digest_file
 from src.transaction import inspect_transaction
 from src.common import get, safe_id, safe_cursor, parse_object, valid_timestamp
 from src.storage import load_record, list_records, history_dir, validate_state_path
@@ -16,7 +17,7 @@ export func load_event(state, name) {
     }
     if file_size(path) > 65536 { return {"ok": false, "code": "event_too_large", "error": "history event exceeds 64 KiB"} }
     mut parsed := null
-    try { parsed = parse_object(read_file(path), "history event") }
+    try { parsed = parse_object(read_text(path,65536), "history event") }
     except error { return {"ok": false, "code": "event_read_failed", "error": "could not read history event"} }
     if !parsed["ok"] { return parsed }
     event := parsed["value"]
@@ -35,11 +36,13 @@ export func list_history(state, after, limit) {
     if error != "" { return {"ok": false, "code": "unsafe_state", "error": error} }
     if after != "" && !safe_cursor(after) { return {"ok": false, "code": "unsafe_cursor", "error": "invalid history cursor"} }
     dir := history_dir(state)
-    if file_exists(dir) && (!path_is_dir(dir) || path_is_symlink(dir)) { return {"ok": false, "code": "unsafe_state", "error": "history path must be a regular directory"} }
+    if is_link(dir) || (file_exists(dir) && !path_is_dir(dir)) { return {"ok": false, "code": "unsafe_state", "error": "history path must be a regular directory"} }
     mut scanned := 0
     if path_is_dir(dir) {
+        page := directory_page(dir,after,".json",limit)
+        truncated = page["truncated"]
         mut names := []
-        for name in list_dir(dir) { if ends_with(name, ".json") { names = push(names, substring(name, 0, len(name) - 5)) } }
+        for name in page["names"] { names = push(names,substring(name,0,len(name)-5)) }
         for name in sort(names) {
             if after == "" || name > after {
                 if scanned >= limit { truncated = true; break }
@@ -87,7 +90,9 @@ export func audit_state(state) {
     if file_exists(transaction_dir) {
         if !path_is_dir(transaction_dir) || path_is_symlink(transaction_dir) { return {"ok":false,"code":"unsafe_state","error":"transaction directory is unsafe"} }
         mut inspected := 0
-        for name in sort(list_dir(transaction_dir)) {
+        transactions := directory_page(transaction_dir,"",".json",1000)
+        transactions_complete = !transactions["truncated"]
+        for name in transactions["names"] {
             if ends_with(name, ".json") {
                 if inspected >= 1000 { transactions_complete = false; break }
                 inspected = inspected + 1

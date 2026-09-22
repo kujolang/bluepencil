@@ -1,3 +1,4 @@
+from tests.support import temp_path
 from src.core import dispatch
 from src.args import parse_args
 from src.common import valid_timestamp, bounded_int, safe_cursor
@@ -7,7 +8,7 @@ from src.hardening import score_blinded_run
 mut passed := 0; mut failed := 0
 func check(ok, label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
 func opts(v) { return parse_args(v, ["json", "dry-run", "force"]) }
-root := "/tmp/bluepencil-regression-" + uuid_v4()
+root := temp_path("bluepencil-regression-")
 dry := dispatch("review", opts(["--state", root, "--input", "fixtures/core.json", "--actor", "reviewer", "--dry-run"]))
 check(dry["ok"] && !file_exists(root), "dry run creates no state")
 check(!dispatch("review", opts(["--state", root]))["ok"] && !file_exists(root), "invalid review creates no state")

@@ -1,0 +1,68 @@
+// Resolve only the trusted volume root. All remaining components are opened
+// without following symlinks by Kujo's descriptor-relative filesystem APIs.
+export func rooted_path(path) {
+    if type(path) != "string" || trim(path) == "" || len(path) > 4096 || regex_match(path,"[\\x00-\\x1F\\x7F]") { throw("invalid filesystem path") }
+    mut absolute := replace_str(path,"\\","/")
+    if starts_with(absolute,"//") { throw("UNC and device paths are not supported") }
+    if !starts_with(absolute,"/") && !regex_match(absolute,"^[A-Za-z]:/") { absolute = replace_str(os_getcwd(),"\\","/") + "/" + absolute }
+    // macOS system aliases are root-owned. Arbitrary user symlinks are not resolved.
+    for alias in ["/tmp","/var","/etc"] {
+        if absolute == alias || starts_with(absolute,alias + "/") {
+            mut target := ""
+            if path_is_dir(alias) { target = path_absolute(alias) }
+            if target == "/private" + alias { absolute = "/private" + absolute }
+        }
+    }
+    mut root := "/"; mut remainder := substring(absolute,1,len(absolute))
+    if regex_match(absolute,"^[A-Za-z]:/") { root = substring(absolute,0,3); remainder = substring(absolute,3,len(absolute)) }
+    mut parts := []
+    for part in split(remainder,"/") {
+        if part == ".." || contains(part,":") == 1 { throw("filesystem traversal or alternate stream rejected") }
+        if part != "" && part != "." { parts = push(parts,part) }
+    }
+    if len(parts) == 0 { throw("path must name a file or directory beneath the volume root") }
+    return {"root":root,"relative":join(parts,"/")}
+}
+
+export func is_link(path) {
+    try { return path_is_symlink(path) }
+    except error { return false }
+}
+
+export func path_policy(path) {
+    mut resolved := null
+    try { resolved = rooted_path(path) } except error { return "invalid or traversing filesystem path" }
+    mut current := resolved["root"]
+    for part in split(resolved["relative"],"/") {
+        current = join_path(current,part)
+        if is_link(current) { return "filesystem symlink components are not allowed" }
+    }
+    return ""
+}
+
+export func read_text(path, maximum) {
+    resolved := rooted_path(path)
+    return read_file_beneath(resolved["root"],resolved["relative"],maximum)
+}
+
+export func write_text(path, text, overwrite) {
+    resolved := rooted_path(path)
+    return write_file_atomic_beneath(resolved["root"],resolved["relative"],text,overwrite)
+}
+
+export func digest_file(path, maximum) {
+    resolved := rooted_path(path)
+    data := read_binary_file_beneath(resolved["root"],resolved["relative"],maximum)
+    return {"sha256":sha256(data),"bytes":len(data)}
+}
+
+export func directory_page(path, after, suffix, limit) {
+    resolved := rooted_path(path)
+    return list_dir_beneath(resolved["root"],resolved["relative"],after,suffix,limit,100000)
+}
+
+export func ensure_directory(path) {
+    marker := join_path(path,".bluepencil-directory")
+    try { write_text(marker,"",false) }
+    except error { if read_text(marker,1) != "" { throw("directory marker is invalid") } }
+}

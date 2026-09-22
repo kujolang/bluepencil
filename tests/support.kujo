@@ -7,3 +7,18 @@ export func cleanup(path) {
         os_rmdir(path)
     } else { delete_file(path) }
 }
+
+export func temp_path(prefix) {
+    environment := os_environ()
+    mut base := "/tmp"
+    if has_key(environment,"TMPDIR") == 1 { base = environment["TMPDIR"] }
+    else if has_key(environment,"TEMP") == 1 { base = environment["TEMP"] }
+    return join_path(base,prefix + uuid_v4())
+}
+
+export func link_directory(target, link) {
+    if regex_match(replace_str(os_getcwd(),"\\","/"),"^[A-Za-z]:/") {
+        return spawn_process(["cmd.exe","/c","mklink","/J",link,target],{"timeout_ms":5000,"max_output_bytes":4096})
+    }
+    return spawn_process(["ln","-s",target,link],{"timeout_ms":5000,"max_output_bytes":4096})
+}

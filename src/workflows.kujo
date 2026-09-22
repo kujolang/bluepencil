@@ -1,3 +1,4 @@
+from src.filesystem import read_text, write_text, directory_page, digest_file
 from src.common import get, parse_object
 from src.hardening import score_blinded_run, disagreement_trend, verify_bundle, bundle_upgrade_compatible, evaluate_format, accessibility_conformance, local_model_conformance
 
@@ -11,7 +12,7 @@ export func evaluate_workflow(command, payload, key_file) {
     else if command == "adapter-check" { result = local_model_conformance(payload) }
     else if command == "bundle-verify" {
         if key_file == "" || !path_is_file(key_file) || path_is_symlink(key_file) || file_size(key_file) > 8192 { return {"ok":false,"code":"unsafe_key_file","error":"verification requires an explicit regular key file of at most 8 KiB"} }
-        key_result := parse_object(read_file(key_file),"trusted key file")
+        key_result := parse_object(read_text(key_file,8192),"trusted key file")
         if !key_result["ok"] { return {"ok":false,"code":"invalid_key_file","error":"trusted key file is invalid"} }
         key := key_result["value"]
         if type(get(key,"key_id",null)) != "string" || get(key,"key_id","") == "" || get(payload,"key_id",null) != key["key_id"] || get(key,"status","") != "active" { return {"ok":false,"code":"untrusted_key","error":"key identity must match an explicitly trusted active key"} }
