@@ -53,6 +53,16 @@ jobs:
         with:
           path: .runtime/kujo/target
           key: stable-runtime-${{ matrix.os }}-${{ runner.arch }}-${{ env.KUJO_COMMIT }}-opt1-v1${{ runner.os == 'Windows' && '-crt-static-target' || '' }}
+      - name: Install Windows crypto assembler
+        if: runner.os == 'Windows' && steps.runtime-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          choco install nasm --version=2.16.03 --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "NASM installation failed" }
+          $assembler = 'C:\Program Files\NASM'
+          & "$assembler\nasm.exe" -v
+          if ($LASTEXITCODE -ne 0) { throw "NASM unavailable" }
+          $assembler | Out-File -FilePath $env:GITHUB_PATH -Append
       - name: Configure OpenSSL for Windows
         if: runner.os == 'Windows' && steps.runtime-cache.outputs.cache-hit != 'true'
         shell: pwsh
