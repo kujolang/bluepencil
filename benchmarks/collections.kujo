@@ -1,0 +1,86 @@
+from src.storage import list_records
+from src.filesystem import read_text, write_text
+from src.common import get
+
+// Experimental immutable segments, not a supported application storage format.
+// Build from a quiesced flat state; index/segment bytes must remain trusted.
+func build_segments(state, index_root) {
+    mut index_manifest := []; mut build_cursor := ""; mut build_total := 0
+    loop {
+        let source_page := list_records(state,"",build_cursor,500)
+        if len(source_page["warnings"]) > 0 { eprint(to_json(source_page["warnings"])); exit(1) }
+        mut groups := {}
+        for source_record in source_page["records"] {
+            let group_kind := source_record["record_type"]
+            groups[group_kind] = push(get(groups,group_kind,[]),source_record)
+        }
+        for group_kind in sort(keys(groups)) {
+            let segment_bytes := to_json(groups[group_kind])
+            let segment_name := "segment-" + to_string(100000 + len(index_manifest)) + ".json"
+            write_text(index_root + "/" + segment_name,segment_bytes,false)
+            index_manifest = push(index_manifest,{"name":segment_name,"kind":group_kind,"count":len(groups[group_kind]),"bytes":byte_length(segment_bytes),"sha256":sha256(segment_bytes)})
+        }
+        build_total += len(source_page["records"])
+        if !source_page["truncated"] { break }
+        build_cursor = source_page["next_cursor"]
+    }
+    write_text(index_root + "/index.json",to_json({"contract":"bluepencil.segment-experiment/1","records":build_total,"segments":index_manifest}),false)
+    return build_total
+}
+
+func measure_flat(state, kind) {
+    mut flat_cursor := ""; mut flat_count := 0; mut flat_pages := 0; mut flat_bytes := 0; mut flat_sum := 0
+    loop {
+        let flat_page := list_records(state,kind,flat_cursor,500)
+        if len(flat_page["warnings"]) > 0 { eprint(to_json(flat_page["warnings"])); exit(1) }
+        for flat_record in flat_page["records"] { print(to_json(flat_record)); flat_sum += flat_record["payload"]["ordinal"] }
+        flat_count += len(flat_page["records"]); flat_pages += 1
+        if flat_page["retained_bytes"] > flat_bytes { flat_bytes = flat_page["retained_bytes"] }
+        if !flat_page["truncated"] { break }
+        flat_cursor = flat_page["next_cursor"]
+    }
+    return {"records":flat_count,"pages":flat_pages,"max_retained_json_bytes":flat_bytes,"ordinal_sum":flat_sum}
+}
+
+func measure_segments(index_root, kind) {
+    let manifest_bytes := read_text(index_root + "/index.json",262144)
+    let snapshot := parse_json(manifest_bytes)
+    mut segment_count := 0; mut segment_pages := 0; mut segment_peak := byte_length(manifest_bytes); mut segment_sum := 0
+    for segment in snapshot["segments"] {
+        if kind == "" || segment["kind"] == kind {
+            let contents := read_text(index_root + "/" + segment["name"],2097152)
+            if sha256(contents) != segment["sha256"] { eprint("segment checksum mismatch"); exit(1) }
+            let segment_records := parse_json(contents)
+            for segment_record in segment_records { print(to_json(segment_record)); segment_sum += segment_record["payload"]["ordinal"] }
+            segment_count += len(segment_records); segment_pages += 1
+            let held := byte_length(manifest_bytes) + byte_length(contents)
+            if held > segment_peak { segment_peak = held }
+        }
+    }
+    return {"records":segment_count,"pages":segment_pages,"max_retained_json_bytes":segment_peak,"ordinal_sum":segment_sum}
+}
+
+let options := args()
+let operation := options[0]; let state_path := options[1]; let index_path := options[2]
+let start_time := performance_now()
+mut receipt := {}
+if operation == "generate" {
+    create_dir(state_path); create_dir(state_path + "/records"); create_dir(index_path)
+    mut ordinal := 0
+    while ordinal < to_int(options[3]) {
+        let fixture_id := "record-" + to_string(100000 + ordinal)
+        mut fixture_kind := "review_finding"
+        if ordinal % 1000 == 0 { fixture_kind = "review" }
+        let fixture_record := {"schema_version":"1.0.0","id":fixture_id,"record_type":fixture_kind,"payload":{"ordinal":ordinal,"verdict":"unverified","text":"Synthetic benchmark fixture; not an editorial quality judgment."}}
+        write_file(state_path + "/records/" + fixture_id + ".json",to_json(fixture_record),true)
+        ordinal += 1
+    }
+    receipt = {"records":ordinal}
+} else if operation == "build" { receipt = {"records":build_segments(state_path,index_path)} }
+else if operation == "flat" { receipt = measure_flat(state_path,options[3]) }
+else if operation == "segments" { receipt = measure_segments(index_path,options[3]) }
+else { eprint("unknown benchmark operation"); exit(2) }
+receipt["operation"] = operation
+receipt["wall_ms"] = performance_now() - start_time
+receipt["peak_rss_bytes"] = process_usage()["peak_rss_bytes"]
+if len(options) > 4 { write_file(options[4],to_json(receipt),true) } else { print(to_json(receipt)) }

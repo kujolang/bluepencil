@@ -38,12 +38,15 @@ application fixtures; this does not establish coverage for every reparse type.
 vendored Publishing House schema and mirrors its request identity, artifact
 checksum, and no-publication-effect boundary. The schema's repository, exact
 revision, and checksum are in `fixtures/publishing_house/provenance.json`.
-This is an offline contract integration, not a live operator run.
+The new `tests/operator_sandbox.kujo` additionally exercises the actual operator
+in disposable offline state; current candidate results are tracked in the
+[next-session execution ledger](NEXT_SESSION_EXECUTION_2026-09-22.md).
 
 
-## Verification evidence
+## Historical verification evidence (previous source pin)
 
-The application suite passes 201 assertions on Linux, macOS, and Windows,
+The prior `ee6ce1dabd6629be33b3241b0ab9b5a970256c56` runtime and
+BluePencil `300607e` application suite passed 201 assertions on Linux, macOS, and Windows,
 including native Windows launcher smoke, concurrent first initialization,
 process-kill recovery, JSONL completion receipts, and the pinned consumer fixture.
 The native runtime passes 14 filesystem tests on Linux/macOS and nine on Windows,
