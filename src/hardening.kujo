@@ -12,7 +12,7 @@ func bounded_array(value, maximum) { return type(value) == "array" && len(value)
 export func score_blinded_run(run) {
     if type(run) != "dict" || get(run, "blinded", false) != true { return {"ok":false,"error":"calibration scoring requires blinded=true"} }
     expected := get(run, "expected", []); observed := get(run, "observed", [])
-    if !bounded_array(expected, 10000) || len(expected) != len(observed) { return {"ok":false,"error":"expected and observed must contain 1..10000 paired judgments"} }
+    if !bounded_array(expected, 10000) || !bounded_array(observed, 10000) || len(expected) != len(observed) { return {"ok":false,"error":"expected and observed must contain 1..10000 paired judgments"} }
     mut matches := 0; mut disagreements := []
     mut i := 0
     while i < len(expected) { if expected[i] == observed[i] { matches = matches + 1 } else { disagreements = push(disagreements, {"index":i,"expected":expected[i],"observed":observed[i]}) }; i = i + 1 }

@@ -15,6 +15,13 @@ check(!conflict["ok"] && conflict["code"] == "history_conflict", "history confli
 check(!path_is_file(root + "/records/" + record["id"] + ".json"), "history conflict leaves no partial record")
 delete_file(event_path)
 check(save_new(root, record)["ok"], "clean retry persists record and audit event")
+before := read_file(root + "/records/" + record["id"] + ".json")
+check(!save_new(root, record)["ok"] && read_file(root + "/records/" + record["id"] + ".json") == before, "duplicate preserves existing bytes")
+record["id"] = "record-file-locked"
+write_file(root + "/locks/record-file-locked.lock", "another writer", true)
+conflict = save_new(root, record)
+check(!conflict["ok"] && conflict["code"] == "write_conflict", "exclusive file lock rejects second writer")
+check(read_file(root + "/locks/record-file-locked.lock") == "another writer", "conflict preserves another writer lock")
 
 print(to_string(passed) + " passed; " + to_string(failed) + " failed")
 if failed > 0 { exit(1) }

@@ -1,0 +1,47 @@
+from src.core import dispatch
+from src.args import parse_args
+from src.common import valid_timestamp, bounded_int, safe_cursor
+from src.storage import list_records
+from src.hardening import score_blinded_run
+
+mut passed := 0; mut failed := 0
+func check(ok, label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
+func opts(v) { return parse_args(v, ["json", "dry-run", "force"]) }
+root := "/tmp/bluepencil-regression-" + uuid_v4()
+dry := dispatch("review", opts(["--state", root, "--input", "fixtures/core.json", "--actor", "reviewer", "--dry-run"]))
+check(dry["ok"] && !file_exists(root), "dry run creates no state")
+check(!dispatch("review", opts(["--state", root]))["ok"] && !file_exists(root), "invalid review creates no state")
+check(!dispatch("unknown", opts(["--state", root]))["ok"] && !file_exists(root), "unknown dispatch fails without writes")
+check(len(opts(["--state"])["errors"]) == 1, "missing option value rejected")
+check(!dispatch("init", opts(["--state"]))["ok"], "dispatch rejects malformed options")
+check(!valid_timestamp("2026-02-29T00:00:00Z"), "non leap February rejected")
+check(valid_timestamp("2024-02-29T00:00:00.123Z"), "leap February accepted")
+check(!valid_timestamp("1900-02-29T00:00:00Z") && valid_timestamp("2000-02-29T00:00:00Z"), "Gregorian century leap rule")
+check(!valid_timestamp("2026-04-31T00:00:00Z"), "thirty day month rejected")
+check(!bounded_int("99999999999999999999999999", 100, 1, 1000)["ok"], "oversized integer fails without overflow")
+check(!score_blinded_run({"blinded":true,"expected":["x"],"observed":"x"})["ok"], "non-array observed judgments rejected")
+check(safe_cursor("INVALID") && !safe_cursor("../escape") && !safe_cursor("a\\b"), "opaque cursor remains traversal safe")
+check(dispatch("init", opts(["--state", root]))["ok"], "scan fixture initialized")
+mut i := 0
+while i < 1001 { write_file(root + "/records/review-" + to_string(10000 + i) + ".json", "{", true); i = i + 1 }
+page := list_records(root, "review", "", 10)
+check(page["truncated"] && page["scanned"] == 1000 && len(page["warnings"]) == 1000, "corrupt filtered scan has bounded reads and warnings")
+tail := list_records(root, "review", page["next_cursor"], 10)
+check(!tail["truncated"] && len(tail["warnings"]) == 1, "cursor resumes after corrupt records")
+i = 0
+template := dry["value"]["record"]
+while i < 1001 { id := "review-" + to_string(10000 + i); template["id"] = id; write_file(root + "/records/" + id + ".json", to_json(template), true); i = i + 1 }
+validation := dispatch("validate", opts(["--state", root]))
+check(!validation["ok"] && validation["code"] == "validation_incomplete", "partial validation never reports complete success")
+health := dispatch("doctor", opts(["--state", root]))
+check(!health["ok"] && health["code"] == "health_incomplete", "partial doctor never reports complete success")
+check(dispatch("validate", opts(["--state", root, "--id", "review-11000"]))["ok"], "individual validation beyond first page")
+for name in list_dir(root + "/records") { delete_file(root + "/records/" + name) }
+for id in ["review-a", "review-a-b"] { template["id"] = id; write_file(root + "/records/" + id + ".json", to_json(template), true) }
+first := list_records(root, "", "", 1)
+second := list_records(root, "", first["next_cursor"], 1)
+check(first["records"][0]["id"] == "review-a" && second["records"][0]["id"] == "review-a-b", "prefix-related ids paginate without omissions")
+for name in list_dir(root + "/records") { delete_file(root + "/records/" + name) }
+for name in ["records", "history", "locks"] { os_rmdir(root + "/" + name) }
+delete_file(root + "/metadata.json"); os_rmdir(root)
+print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

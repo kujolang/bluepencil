@@ -11,10 +11,16 @@ cd "$ROOT"
 "$KUJO_RUNTIME" run tests/storage_test.kujo
 "$KUJO_RUNTIME" run tests/domain_test.kujo
 "$KUJO_RUNTIME" run tests/hardening_test.kujo
+"$KUJO_RUNTIME" run tests/regression_test.kujo
 while IFS= read -r document; do "$KUJO_RUNTIME" run scripts/validate_json.kujo -- "$document"; done < <(find fixtures schemas -type f -name '*.json' -print | sort)
 tmp_state="$(mktemp -d)"; trap 'find "$tmp_state" -depth -delete' EXIT
 KUJO_BIN="$KUJO_RUNTIME" ./bin/bluepencil --help >/dev/null
 KUJO_BIN="$KUJO_RUNTIME" ./bin/bluepencil --version --json >/dev/null
+KUJO_BIN="$KUJO_RUNTIME" ./bin/bluepencil --version --json > "$tmp_state/version.json"
+"$KUJO_RUNTIME" run scripts/validate_json.kujo -- "$tmp_state/version.json"
+if KUJO_BIN="$KUJO_RUNTIME" ./bin/bluepencil report --state > /dev/null 2>&1; then
+  printf 'validation failed: missing flag value accepted.\n' >&2; exit 1
+fi
 KUJO_BIN="$KUJO_RUNTIME" ./bin/bluepencil doctor --state "$tmp_state/state" --json >/dev/null
 if grep -REn --include='*.kujo' 'python3|node |\.py\b|\.mjs\b' src tests scripts bluepencil.kujo kujo.toml; then
   printf 'BluePencil validation failed: foreign runtime dependency reference found.\n' >&2; exit 1
