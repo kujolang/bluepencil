@@ -2,7 +2,7 @@
 let parameters := args()
 if len(parameters) != 2 { eprint("usage: runtime_notices.kujo METADATA OUTPUT_DIRECTORY"); exit(2) }
 let metadata := parse_json(read_file(parameters[0])); let output := parameters[1]
-mut included := {}; for dependency_node in metadata["resolve"]["nodes"] { included[dependency_node["id"]] = true }
+mut included := {}; for dependency_entry in metadata["resolve"]["nodes"] { included[dependency_entry["id"]] = true }
 mut notice := "BluePencil bundled Kujo runtime: third-party dependency notices\n\n"
 notice += "The following inventory covers the locked no-default-features dependency graph, including build and target-specific dependencies. Presence is not proof that a crate is linked on every platform. Original license terms apply.\n\n"
 mut inventory := []
