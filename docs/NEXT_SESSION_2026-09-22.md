@@ -4,7 +4,7 @@ These are proposed product directions, not a claim that BluePencil is a universa
 enterprise service. Preserve the local offline CLI, immutable records, explicit
 publication-authority boundary, and evidence-based readiness claims.
 
-- [ ] **Distribution:** upstream/release the pinned Kujo filesystem primitive,
+- [x] **Distribution:** upstream/release the pinned Kujo filesystem primitive,
   then publish checksummed platform binaries and a clean-machine installation
   test. Do not replace the source pin with a version label before the required
   APIs ship in that release.
@@ -30,3 +30,7 @@ publication-authority boundary, and evidence-based readiness claims.
 Start with distribution, then use actual user workloads to prioritize scale or
 editorial evaluation. These items extend the verified local program's scope;
 they do not retroactively turn its current boundary into an enterprise claim.
+
+All six items are complete within the scope above. See the
+[execution ledger](NEXT_SESSION_EXECUTION_2026-09-22.md) for verification and
+[the new worklist](NEXT_SESSION_AFTER_0_3_RC1.md) for remaining product work.
