@@ -1,10 +1,11 @@
+from src.filesystem import rooted_path
 from tests.support import cleanup
 // Args: runtime, baseline checkout, output JSON. The baseline must be disposable.
 values := args()
 if len(values) != 3 { eprint("usage: benchmarks/run.kujo RUNTIME BASELINE_CHECKOUT OUTPUT_JSON"); exit(2) }
 runtime := values[0]; baseline := values[1]; output := values[2]
 root := create_temp_dir(".",".bluepencil-benchmark-")
-root = path_absolute(root)
+resolved_root := rooted_path(root); root = resolved_root["root"] + resolved_root["relative"]
 create_dir(baseline + "/.loop-engineering")
 write_file(baseline + "/.loop-engineering/bluepencil-benchmark.kujo",read_file("benchmarks/scan.kujo"),true)
 mut measurements := []
