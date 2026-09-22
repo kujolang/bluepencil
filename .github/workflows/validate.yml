@@ -57,7 +57,7 @@ jobs:
         if: runner.os == 'Windows' && steps.runtime-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          choco install nasm --version=2.16.03 --yes --no-progress
+          choco install nasm --version=2.16.3 --yes --no-progress
           if ($LASTEXITCODE -ne 0) { throw "NASM installation failed" }
           $assembler = 'C:\Program Files\NASM'
           & "$assembler\nasm.exe" -v
