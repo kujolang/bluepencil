@@ -1,0 +1,90 @@
+from src.common import get, safe_id, safe_cursor, parse_object, valid_timestamp
+from src.storage import load_record, list_records, history_dir, validate_state_path
+
+export func event_name(record) {
+    return substring(sha256(record["created_at"] + "\n" + record["id"]), 0, 32)
+}
+
+export func load_event(state, name) {
+    if !regex_match(name, "^[a-f0-9]{32}$") {
+        return {"ok": false, "code": "invalid_event_name", "error": "history filename must be a 32-character hexadecimal digest"}
+    }
+    path := join_path(history_dir(state), name + ".json")
+    if !path_is_file(path) || path_is_symlink(path) {
+        return {"ok": false, "code": "unsafe_event", "error": "history event must be a regular non-symlink file"}
+    }
+    if file_size(path) > 65536 { return {"ok": false, "code": "event_too_large", "error": "history event exceeds 64 KiB"} }
+    mut parsed := null
+    try { parsed = parse_object(read_file(path), "history event") }
+    except error { return {"ok": false, "code": "event_read_failed", "error": "could not read history event"} }
+    if !parsed["ok"] { return parsed }
+    event := parsed["value"]
+    if get(event, "schema_version", "") != "1.0.0" || get(event, "event", "") != "record.created" || !safe_id(get(event, "record_id", null)) || !valid_timestamp(get(event, "at", null)) {
+        return {"ok": false, "code": "invalid_event", "error": "history event identity or version is invalid"}
+    }
+    if type(get(event, "actor", null)) != "string" || trim(event["actor"]) == "" || type(get(event, "record_sha256", null)) != "string" || !regex_match(event["record_sha256"], "^[a-f0-9]{64}$") {
+        return {"ok": false, "code": "invalid_event", "error": "history event actor or checksum is invalid"}
+    }
+    return {"ok": true, "value": event}
+}
+
+export func list_history(state, after, limit) {
+    mut events := []; mut warnings := []; mut cursor := after; mut truncated := false
+    error := validate_state_path(state)
+    if error != "" { return {"ok": false, "code": "unsafe_state", "error": error} }
+    if after != "" && !safe_cursor(after) { return {"ok": false, "code": "unsafe_cursor", "error": "invalid history cursor"} }
+    dir := history_dir(state)
+    if file_exists(dir) && (!path_is_dir(dir) || path_is_symlink(dir)) { return {"ok": false, "code": "unsafe_state", "error": "history path must be a regular directory"} }
+    mut scanned := 0
+    if path_is_dir(dir) {
+        mut names := []
+        for name in list_dir(dir) { if ends_with(name, ".json") { names = push(names, substring(name, 0, len(name) - 5)) } }
+        for name in sort(names) {
+            if after == "" || name > after {
+                if scanned >= limit { truncated = true; break }
+                cursor = name; scanned = scanned + 1
+                loaded := load_event(state, name)
+                if loaded["ok"] { events = push(events, {"event_id": name, "event": loaded["value"]}) }
+                else { warnings = push(warnings, {"event_id": name, "code": loaded["code"], "error": loaded["error"]}) }
+            }
+        }
+    }
+    return {"ok": true, "value": {"events": events, "warnings": warnings, "scanned": scanned, "next_cursor": cursor, "truncated": truncated}}
+}
+
+export func audit_state(state) {
+    listing := list_records(state, "", "", 1000)
+    history := list_history(state, "", 1000)
+    if !history["ok"] { return history }
+    mut issues := []
+    for warning in listing["warnings"] { issues = push(issues, warning) }
+    for warning in history["value"]["warnings"] { issues = push(issues, warning) }
+    mut seen := {}; mut verified := 0
+    for entry in history["value"]["events"] {
+        event := entry["event"]; id := event["record_id"]
+        if has_key(seen, id) == 1 { issues = push(issues, {"id": id, "code": "duplicate_event", "error": "multiple creation events reference this record"}) }
+        seen[id] = true
+        loaded := load_record(state, id)
+        if !loaded["ok"] { issues = push(issues, {"id": id, "code": "orphan_event", "error": "creation event has no readable record"}) }
+        else {
+            record := loaded["value"]
+            if event["record_sha256"] != loaded["checksum"] { issues = push(issues, {"id": id, "code": "record_checksum_mismatch", "error": "record bytes differ from creation event"}) }
+            else if event["actor"] != get(record, "actor", null) || event["at"] != get(record, "created_at", null) {
+                issues = push(issues, {"id": id, "code": "event_identity_mismatch", "error": "event actor or timestamp differs from record"})
+            } else if entry["event_id"] != event_name(record) {
+                issues = push(issues, {"id": id, "code": "event_filename_mismatch", "error": "event filename differs from deterministic identity"})
+            } else { verified = verified + 1 }
+        }
+    }
+    for record in listing["records"] {
+        if has_key(seen, record["id"]) == 0 && !history["value"]["truncated"] {
+            issues = push(issues, {"id": record["id"], "code": "missing_event", "error": "record has no valid creation event"})
+        }
+    }
+    complete := !listing["truncated"] && !history["value"]["truncated"]
+    ok := complete && len(issues) == 0
+    mut code := null; mut error := null
+    if !ok { code = "audit_failed"; error = "record and event reconciliation failed" }
+    if !complete { code = "audit_incomplete"; error = "audit exceeds the 1000 record/event scan budget" }
+    return {"ok": ok, "code": code, "error": error, "value": {"valid": ok, "complete": complete, "verified": verified, "issues": issues, "trust_boundary": "local checksums; no external trust anchor"}}
+}

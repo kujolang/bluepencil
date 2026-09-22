@@ -68,7 +68,7 @@ Priorities reflect local data integrity before broader product features.
 
 ### P1 — storage and trust boundaries
 
-- [ ] **BP-01: Reconcile records with creation events.** `validate_record` in
+- [x] **BP-01: Reconcile records with creation events.** `validate_record` in
   `src/core.kujo` checks payload and artifact hashes but never reads the stored
   event checksum. The existing legacy-compatibility test rewrites record bytes
   and still validates, demonstrating that schema validity is distinct from
@@ -132,3 +132,7 @@ Priorities reflect local data integrity before broader product features.
 
 Start with BP-01 through BP-03, then establish the BP-04 measurements. Feature
 expansion should build on those storage guarantees rather than obscure them.
+
+## Completion evidence (continuation)
+
+BP-01: `src/audit.kujo`, `audit` CLI, and `tests/audit_test.kujo` (12 passing assertions) reconcile exact persisted bytes, event identities, duplicates, missing/orphan events, malformed events, and legitimate 0.1.0 records. Reports fail when coverage is incomplete. Local checksum reconciliation does not establish an external trust anchor.
