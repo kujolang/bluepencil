@@ -1,0 +1,55 @@
+from src.core import dispatch
+from src.args import parse_args
+from src.filesystem import read_text, write_text
+from src.checkpoints import create_checkpoint, verify_checkpoint
+from src.transaction import recover_transaction
+from tests.support import temp_path, cleanup
+mut passed := 0; mut failed := 0
+func check(ok,label) { if ok { passed = passed + 1 } else { failed = failed + 1; eprint("FAIL: " + label) } }
+func call(command, flags) { return dispatch(command,parse_args(flags,[])) }
+func copy_tree(source,target) {
+    create_dir(target)
+    for name in list_dir(source) {
+        let origin := join_path(source,name); let destination := join_path(target,name)
+        if path_is_dir(origin) { copy_tree(origin,destination) }
+        else { write_text(destination,read_text(origin,3145728),false) }
+    }
+}
+root := temp_path("bluepencil upgrade "); create_dir(root)
+for version in ["v0.2.0","v0.3.0-rc.1"] {
+    let fixture := "fixtures/upgrades/" + version
+    let manifest := parse_json(read_text(fixture + "/provenance.json",65536))
+    let state := root + "/" + version; copy_tree(fixture + "/state",state)
+    for entry in manifest["files"] { check(sha256(read_text(state + "/" + entry["path"],3145728)) == entry["sha256"],version + " frozen source checksum") }
+    let original := read_text(state + "/records/review-legacy.json",1048576)
+    check(parse_json(original)["tool_version"] == substring(version,1,len(version)),version + " actual historical tool version")
+    let config := root + "/" + version + " config.json"
+    let config_text := "{\"actor\":\"configured-reviewer\",\"limit\":10}\n"
+    write_text(config,config_text,false)
+    check(call("init",["--state",state])["ok"],version + " compatible initialization")
+    check(call("validate",["--state",state])["ok"] && call("audit",["--state",state])["ok"],version + " existing evidence validates and audits")
+    let checkpoint := root + "/" + version + " checkpoint.json"
+    check(create_checkpoint(state,checkpoint,"upgrade-custodian")["ok"],version + " pre-upgrade checkpoint")
+    let backup := root + "/" + version + " backup"; copy_tree(state,backup)
+    let result := call("review",["--state",state,"--config",config,"--input","fixtures/core.json","--id","review-stable"])
+    check(result["ok"],version + " new stable write")
+    check(parse_json(read_text(state + "/records/review-stable.json",1048576))["actor"] == "configured-reviewer",version + " configuration retained")
+    check(read_text(config,65536) == config_text,version + " config never rewritten")
+    for entry in manifest["files"] { check(sha256(read_text(state + "/" + entry["path"],3145728)) == entry["sha256"],version + " original bytes and history preserved") }
+    check(call("validate",["--state",state])["ok"] && call("audit",["--state",state])["ok"],version + " mixed versions validate and audit")
+    check(!call("review",["--state",state,"--input","fixtures/core.json","--actor","fixture","--id","review-legacy"])["ok"],version + " immutable ID cannot be overwritten")
+    let restored := root + "/" + version + " restored"; copy_tree(backup,restored)
+    check(verify_checkpoint(restored,checkpoint)["ok"] && call("audit",["--state",restored])["ok"],version + " backup restores at a new path")
+    check(!file_exists(restored + "/records/review-stable.json") && read_text(restored + "/records/review-legacy.json",1048576) == original,version + " rollback uses unchanged backup")
+    if version == "v0.3.0-rc.1" {
+        let journal := parse_json(read_text(restored + "/transactions/review-legacy.json",3145728))
+        delete_file(restored + "/records/review-legacy.json")
+        delete_file(restored + "/history/" + journal["event_id"] + ".json")
+        check(!call("audit",["--state",restored])["ok"],"unfinished RC transaction detected")
+        check(!recover_transaction(restored,"review-legacy","incorrect-owner")["ok"],"RC recovery retains owner check")
+        check(recover_transaction(restored,"review-legacy",journal["owner"])["ok"],"stable resumes original RC intent")
+        check(verify_checkpoint(restored,checkpoint)["ok"],"recovery restores exact checkpoint bytes")
+    }
+}
+cleanup(root)
+print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

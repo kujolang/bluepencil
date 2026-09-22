@@ -1,0 +1,48 @@
+// Execute the installed public launcher with no inherited toolchain or Kujo path.
+from tests.support import temp_path, cleanup
+from src.filesystem import read_text
+if len(args()) != 1 { eprint("usage: release_install.kujo INSTALLED_ROOT"); exit(2) }
+let installation := replace_str(args()[0],"\\","/")
+let scratch := temp_path("bluepencil clean install "); create_dir(scratch)
+let windows := regex_match(installation,"^[A-Za-z]:/")
+let host := os_environ()
+mut clean_env := {"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","HOME":scratch,"TMPDIR":scratch,"LANG":"C.UTF-8"}
+mut launcher := installation + "/bin/bluepencil"
+if windows {
+    let system := host["SystemRoot"]
+    clean_env = {"PATH":system + "\\System32;" + system,"SystemRoot":system,"WINDIR":system,"COMSPEC":system + "\\System32\\cmd.exe","PATHEXT":".COM;.EXE;.BAT;.CMD","TEMP":scratch,"TMP":scratch,"USERPROFILE":scratch}
+    launcher = installation + "/bin/bluepencil.cmd"
+}
+mut passed := 0
+func require(ok,label) { if !ok { eprint("FAIL: " + label); exit(1) }; passed += 1 }
+func execute(arguments) {
+    mut command := [launcher,...arguments]
+    if windows {
+        mut quoted := "\"" + launcher + "\""
+        for argument in arguments { quoted = quoted + " \"" + argument + "\"" }
+        command = [clean_env["COMSPEC"],"/d","/s","/c","\"" + quoted + "\""]
+    }
+    let result := spawn_process(command,{"timeout_ms":60000,"max_output_bytes":1048576,"inherit_env":false,"env":clean_env,"cwd":scratch})
+    if result.exitcode != 0 { eprint(result.stdout); eprint(result.stderr) }
+    require(result.exitcode == 0 && !result.stdout_truncated,"public launcher exits successfully")
+    return result.stdout
+}
+mut probe := ["/bin/sh","-c","command -v kujo || command -v cargo || command -v rustc"]
+if windows { probe = [clean_env["COMSPEC"],"/d","/c","where kujo cargo rustc"] }
+let absent := spawn_process(probe,{"timeout_ms":5000,"max_output_bytes":8192,"inherit_env":false,"env":clean_env,"cwd":scratch})
+require(absent.exitcode != 0,"no installed Kujo or Rust on effective PATH")
+let version := parse_json(execute(["--version","--json"]))
+require(version["ok"] && version["tool_version"] == trim(read_text(installation + "/VERSION",128)),"installed version matches distribution")
+require(len(execute(["--help"])) > 0,"installed help available")
+let state := scratch + "/state with spaces"
+for command in ["doctor","init"] { require(parse_json(execute([command,"--state",state,"--json"]))["ok"],command + " in clean environment") }
+require(parse_json(execute(["review","--state",state,"--input",installation + "/fixtures/core.json","--actor","install-reviewer","--id","review-installed","--json"]))["ok"],"installed write")
+for command in ["validate","audit"] { require(parse_json(execute([command,"--state",state,"--json"]))["ok"],command + " installed state") }
+let checkpoint := scratch + "/independent checkpoint.json"
+require(parse_json(execute(["checkpoint-create","--state",state,"--custodian","installation-custodian","--output",checkpoint,"--json"]))["ok"],"installed checkpoint creation")
+require(parse_json(execute(["checkpoint-verify","--state",state,"--checkpoint",checkpoint,"--json"]))["ok"],"installed checkpoint verification")
+let lines := split(trim(execute(["export-stream","--state",state,"--json"])),"\n")
+let receipt := parse_json(lines[len(lines)-1])
+require(receipt["ok"] && receipt["data"]["complete"] && receipt["data"]["records"] == 1,"installed complete export")
+cleanup(scratch)
+print(to_string(passed) + " passed; 0 failed")

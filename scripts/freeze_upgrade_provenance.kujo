@@ -1,0 +1,15 @@
+// Run only when intentionally refreshing historical fixtures from real tag checkouts.
+from src.filesystem import read_text, write_text
+for spec in [["v0.2.0","618ebc24bc121b63d7ea36affd28770683eb1d96"],["v0.3.0-rc.1","e70621f6d058fd5149df9646eb8eeadfa32d67e6"]] {
+    let root := "fixtures/upgrades/" + spec[0]
+    mut files := [{"path":"metadata.json","sha256":sha256(read_text(root + "/state/metadata.json",65536))}]
+    for directory in ["records","history","transactions"] {
+        if path_is_dir(root + "/state/" + directory) {
+            for name in sort(list_dir(root + "/state/" + directory)) {
+                let relative := directory + "/" + name
+                files = push(files,{"path":relative,"sha256":sha256(read_text(root + "/state/" + relative,3145728))})
+            }
+        }
+    }
+    write_text(root + "/provenance.json",to_json_pretty({"schema_version":"1.0.0","repository":"https://github.com/kujolang/bluepencil","source_tag":spec[0],"source_commit":spec[1],"runtime_commit":"262b3e7517ac47edca843120dd8689c0c820d62e","generation":"Actual tagged CLI from its own working directory; review-legacy, fixtures/core.json, actor upgrade-fixture, timestamp 2026-09-22T12:00:00Z. Metadata timestamps and RC owner token are frozen fixture data.","files":files}) + "\n",true)
+}

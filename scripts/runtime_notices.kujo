@@ -1,0 +1,32 @@
+// Build-time input is trusted, locked cargo metadata, never editorial input.
+let parameters := args()
+if len(parameters) != 2 { eprint("usage: runtime_notices.kujo METADATA OUTPUT_DIRECTORY"); exit(2) }
+let metadata := parse_json(read_file(parameters[0])); let output := parameters[1]
+mut included := {}; for node in metadata["resolve"]["nodes"] { included[node["id"]] = true }
+mut notice := "BluePencil bundled Kujo runtime: third-party dependency notices\n\n"
+notice += "The following inventory covers the locked no-default-features dependency graph, including build and target-specific dependencies. Presence is not proof that a crate is linked on every platform. Original license terms apply.\n\n"
+mut inventory := []
+for package in metadata["packages"] {
+    if has_key(included,package["id"]) == 1 {
+        let source := dirname(package["manifest_path"])
+        inventory = push(inventory,{"name":package["name"],"version":package["version"],"license":package["license"],"source":package["source"]})
+        notice += "\n=== " + package["name"] + " " + package["version"] + " ===\nLicense expression: " + to_string(package["license"]) + "\n"
+        if package["source"] != null { notice += "Source: https://crates.io/crates/" + package["name"] + "/" + package["version"] + "\n" }
+        for name in sort(list_dir(source)) {
+            let lower := to_lower(name); let path := source + "/" + name
+            if path_is_file(path) && (starts_with(lower,"license") || starts_with(lower,"copying") || starts_with(lower,"notice")) && file_size(path) <= 1048576 {
+                notice += "\n--- " + name + " ---\n" + read_file(path) + "\n"
+            }
+        }
+        for nested in ["openssl/LICENSE.txt","aws-lc/LICENSE","aws-lc/NOTICE"] {
+            if path_is_file(source + "/" + nested) { notice += "\n--- " + nested + " ---\n" + read_file(source + "/" + nested) + "\n" }
+        }
+        if package["name"] == "colored" {
+            write_file(output + "/colored-source-path.txt",source,false)
+            notice += "\nUnmodified colored source is included in runtime/colored-source under MPL-2.0. Its original notices and terms remain intact.\n"
+        }
+    }
+}
+write_file(output + "/THIRD_PARTY_NOTICES.txt",notice,false)
+write_file(output + "/DEPENDENCIES.json",to_json_pretty({"schema_version":"1.0.0","features":"no-default-features","packages":inventory}),false)
+print("Packaged notices for " + to_string(len(inventory)) + " resolved dependencies")

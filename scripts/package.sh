@@ -17,6 +17,10 @@ extension=""; if [[ "$BUNDLE_PLATFORM" == windows-* ]]; then extension=".exe"; f
 cp "$KUJO_BIN" "$stage/$name/runtime/kujo$extension"
 chmod +x "$stage/$name/runtime/kujo$extension"
 cp "$KUJO_SOURCE_ROOT/LICENSE" "$stage/$name/runtime/LICENSE"
+cargo metadata --locked --no-default-features --format-version 1 --manifest-path "$KUJO_SOURCE_ROOT/Cargo.toml" > "$stage/runtime-metadata.json"
+"$KUJO_BIN" run scripts/runtime_notices.kujo -- "$stage/runtime-metadata.json" "$stage/$name/runtime"
+cp -R "$(cat "$stage/$name/runtime/colored-source-path.txt")" "$stage/$name/runtime/colored-source"
+rm "$stage/$name/runtime/colored-source-path.txt"
 printf '%s\n' "$revision" > "$stage/$name/APPLICATION_COMMIT"
 tar -czf "$ROOT/dist/$name.tar.gz" -C "$stage" "$name"
 (
@@ -25,17 +29,19 @@ tar -czf "$ROOT/dist/$name.tar.gz" -C "$stage" "$name"
   else shasum -a 256 "$name.tar.gz" > "$name.sha256"; fi
 )
 # Verify the actual archive in a fresh installation directory without KUJO_BIN.
-mkdir -p "$stage/installed"
-tar -xzf "$ROOT/dist/$name.tar.gz" -C "$stage/installed"
+mkdir -p "$stage/clean installation"
+tar -xzf "$ROOT/dist/$name.tar.gz" -C "$stage/clean installation"
 (
   cd "$stage"
   unset KUJO_BIN KUJO_MODULE_PATH KUJO_ISOLATED_IMPORTS
-  "$stage/installed/$name/bin/bluepencil" --version --json > version.json
-  "$stage/installed/$name/bin/bluepencil" doctor --state "$stage/install-state" --json > doctor.json
-  "$stage/installed/$name/bin/bluepencil" review --state "$stage/install-state" --input "$stage/installed/$name/fixtures/core.json" --actor installation-smoke --id review-installation --json > review.json
-  "$stage/installed/$name/bin/bluepencil" validate --state "$stage/install-state" --id review-installation --json > validated.json
+  "$stage/clean installation/$name/bin/bluepencil" --version --json > version.json
+  "$stage/clean installation/$name/bin/bluepencil" doctor --state "$stage/install-state" --json > doctor.json
+  "$stage/clean installation/$name/bin/bluepencil" review --state "$stage/install-state" --input "$stage/clean installation/$name/fixtures/core.json" --actor installation-smoke --id review-installation --json > review.json
+  "$stage/clean installation/$name/bin/bluepencil" validate --state "$stage/install-state" --id review-installation --json > validated.json
   # The standalone development probe imports tests.support from its project.
-  cd "$stage/installed/$name"
+  cd "$stage/clean installation/$name"
   ./runtime/kujo"$extension" run scripts/runtime_probe.kujo
+  ./runtime/kujo"$extension" run tests/release_install.kujo -- "$stage/clean installation/$name"
+  ./runtime/kujo"$extension" run tests/upgrade_test.kujo
 )
 printf 'Packaged and smoke-tested %s\n' "$name"

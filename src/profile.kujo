@@ -2,11 +2,12 @@ export func profile() {
     return {
     "slug": "bluepencil",
     "name": "BluePencil",
-    "version": "0.3.0-rc.1",
+    "version": "0.3.0",
     "record_versions": [
         "0.1.0",
         "0.2.0",
-        "0.3.0-rc.1"
+        "0.3.0-rc.1",
+        "0.3.0"
     ],
     "contract_version": "1.0.0",
     "default_state": ".bluepencil",

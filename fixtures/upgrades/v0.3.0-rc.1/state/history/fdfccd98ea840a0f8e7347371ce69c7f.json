@@ -1,0 +1,8 @@
+{
+  "actor": "upgrade-fixture",
+  "at": "2026-09-22T12:00:00Z",
+  "event": "record.created",
+  "record_id": "review-legacy",
+  "record_sha256": "4f1c378092ab95ce9e97d9236e06a19a39122286f96c7f32548d867f03ac568c",
+  "schema_version": "1.0.0"
+}
