@@ -20,7 +20,7 @@ docker run --rm --platform "$container_platform" --network none -v "$bundle_dire
   ! command -v rustc
   ! command -v kujo
   cd /tmp
-  "${installations[0]}/runtime/kujo" run "${installations[0]}/tests/release_install.kujo" --isolated-imports -- "${installations[0]}"
+  (cd "${installations[0]}" && ./runtime/kujo run tests/release_install.kujo -- "$PWD")
   "$launcher" --version --json
   "$launcher" doctor --state /tmp/state --json
   "$launcher" review --state /tmp/state --input "${installations[0]}/fixtures/core.json" --actor installation-smoke --id review-clean-install --json
