@@ -100,3 +100,25 @@ No live provider or publication effects were exercised by that integration test.
 The only subsequent pre-publication changes are documentation and release evidence.
 The final archive-producing CI run must pass the same matrix before publication;
 its exact commit and downloadable asset checksums are recorded with publication.
+
+## Official publication
+
+[BluePencil 0.3.0](https://github.com/kujolang/bluepencil/releases/tag/v0.3.0)
+was published on 2026-09-23 as a stable, non-prerelease release. The tag and all
+five archives use application commit
+`95f59c96ebc4f9a189d559c2b05faaa44e6ec6fe`.
+[Final CI run 35906959226](https://github.com/kujolang/bluepencil/actions/runs/35906959226)
+passed all 12 jobs. PR #2 merged at
+`0f198289cb1001cb3a2a308dc62ddee546661dce`; its tree exactly matches the tested tag.
+
+All five public archives and their five checksum files were downloaded again
+without authentication. Archive hashes match the original CI receipts, and the
+published checksum files match those receipts byte for byte. Exact asset hashes,
+URLs, job identities and publication time are in the
+[machine-readable publication receipt](release-evidence/publication-0.3.0.json).
+The final downloaded macOS Intel archive also passed 21 network-denied launcher
+assertions and 46 upgrade assertions on the local host before publication.
+
+All six promotion gates are complete for the documented supported local-CLI scope.
+The formal workbench limitation and upstream follow-ups above remain explicit;
+this release does not claim universal enterprise readiness.

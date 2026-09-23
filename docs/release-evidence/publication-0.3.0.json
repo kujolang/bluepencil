@@ -1,0 +1,113 @@
+{
+  "version": "0.3.0",
+  "release_id": 394995066,
+  "release_url": "https://github.com/kujolang/bluepencil/releases/tag/v0.3.0",
+  "published_at": "2026-09-23T19:36:20Z",
+  "prerelease": false,
+  "draft": false,
+  "application_commit": "95f59c96ebc4f9a189d559c2b05faaa44e6ec6fe",
+  "runtime_commit": "262b3e7517ac47edca843120dd8689c0c820d62e",
+  "merge_commit": "0f198289cb1001cb3a2a308dc62ddee546661dce",
+  "pull_request": "https://github.com/kujolang/bluepencil/pull/2",
+  "ci_run": "https://github.com/kujolang/bluepencil/actions/runs/35906959226",
+  "ci_jobs": [
+    {
+      "id": 107336912818,
+      "name": "kujo-native (windows-2022, windows-x64)",
+      "conclusion": "success"
+    },
+    {
+      "id": 107336912991,
+      "name": "kujo-native (ubuntu-22.04, linux-x64)",
+      "conclusion": "success"
+    },
+    {
+      "id": 107336913084,
+      "name": "kujo-native (ubuntu-24.04-arm, linux-arm64)",
+      "conclusion": "success"
+    },
+    {
+      "id": 107336913095,
+      "name": "kujo-native (macos-15-intel, macos-x64)",
+      "conclusion": "success"
+    },
+    {
+      "id": 107336913118,
+      "name": "kujo-native (macos-15, macos-arm64)",
+      "conclusion": "success"
+    },
+    {
+      "id": 107344011921,
+      "name": "installed-platforms (macos-26, macOS-ARM64)",
+      "conclusion": "success"
+    },
+    {
+      "id": 107344011936,
+      "name": "installed-platforms (windows-11-arm, Windows-X64)",
+      "conclusion": "success"
+    },
+    {
+      "id": 107344011953,
+      "name": "installed-platforms (windows-2022, Windows-X64)",
+      "conclusion": "success"
+    },
+    {
+      "id": 107344012022,
+      "name": "installed-platforms (macos-15, macOS-ARM64)",
+      "conclusion": "success"
+    },
+    {
+      "id": 107344012105,
+      "name": "installed-platforms (macos-15-intel, macOS-X64)",
+      "conclusion": "success"
+    },
+    {
+      "id": 107344012152,
+      "name": "installed-platforms (macos-26-intel, macOS-X64)",
+      "conclusion": "success"
+    },
+    {
+      "id": 107344012185,
+      "name": "installed-platforms (windows-2025, Windows-X64)",
+      "conclusion": "success"
+    }
+  ],
+  "public_download_verification": {
+    "verified_at": "2026-09-23T19:37:51.416987+00:00",
+    "authentication_used": false,
+    "all_five_archives_match_original_ci_checksums": true,
+    "published_checksum_files_match_original_ci_receipts": true
+  },
+  "archives": [
+    {
+      "name": "bluepencil-95f59c96ebc4-linux-arm64.tar.gz",
+      "sha256": "511d1fe110708283c634732627d5ee649159241696456279519ad68941f5e9a0",
+      "size_bytes": 11401913,
+      "url": "https://github.com/kujolang/bluepencil/releases/download/v0.3.0/bluepencil-95f59c96ebc4-linux-arm64.tar.gz"
+    },
+    {
+      "name": "bluepencil-95f59c96ebc4-linux-x64.tar.gz",
+      "sha256": "2467b557e51fe5077b21aa284c5f17c7dd295f3bf4cdd2b2044a16a3f708683f",
+      "size_bytes": 11895517,
+      "url": "https://github.com/kujolang/bluepencil/releases/download/v0.3.0/bluepencil-95f59c96ebc4-linux-x64.tar.gz"
+    },
+    {
+      "name": "bluepencil-95f59c96ebc4-macos-arm64.tar.gz",
+      "sha256": "9881e315d10dd1cf449d7c38f83d69570010ce43685ff38b8662092eff5e7101",
+      "size_bytes": 10176587,
+      "url": "https://github.com/kujolang/bluepencil/releases/download/v0.3.0/bluepencil-95f59c96ebc4-macos-arm64.tar.gz"
+    },
+    {
+      "name": "bluepencil-95f59c96ebc4-macos-x64.tar.gz",
+      "sha256": "88c5538fd12fe788189e0c9437f9a6f7d2888f87cff524b4ba03eee72dddbda2",
+      "size_bytes": 10424222,
+      "url": "https://github.com/kujolang/bluepencil/releases/download/v0.3.0/bluepencil-95f59c96ebc4-macos-x64.tar.gz"
+    },
+    {
+      "name": "bluepencil-95f59c96ebc4-windows-x64.tar.gz",
+      "sha256": "b5045e53cece247c9cb014c6bae46847bbb30a4ba8a1ee4654f90e5d4217a63a",
+      "size_bytes": 10620323,
+      "url": "https://github.com/kujolang/bluepencil/releases/download/v0.3.0/bluepencil-95f59c96ebc4-windows-x64.tar.gz"
+    }
+  ]
+}
