@@ -18,12 +18,8 @@ if is_windows {
 mut passed := 0
 func require(ok,label) { if !ok { eprint("FAIL: " + label); exit(1) }; passed += 1 }
 func execute(arguments) {
-    mut command := [launcher,...arguments]
-    if is_windows {
-        mut quoted := "\"" + launcher + "\""
-        for argument in arguments { quoted = quoted + " \"" + argument + "\"" }
-        command = [clean_env["COMSPEC"],"/d","/s","/c","\"" + quoted + "\""]
-    }
+    // Structured argv lets the runtime encode Windows batch arguments correctly.
+    let command := [launcher,...arguments]
     let result := spawn_process(command,{"timeout_ms":60000,"max_output_bytes":1048576,"inherit_env":false,"env":clean_env,"cwd":scratch})
     if result.exitcode != 0 { eprint(result.stdout); eprint(result.stderr) }
     require(result.exitcode == 0 && !result.stdout_truncated,"public launcher exits successfully")
