@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 - 2026-09-22
+## 0.3.0 - 2026-09-23
 
 - Promote the supported local CLI with five native platform bundles and versioned OS baselines.
 - Preserve legacy/RC records and add real-version upgrade, backup/restore and recovery evidence.

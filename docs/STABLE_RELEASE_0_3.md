@@ -38,20 +38,22 @@ The security workbench failed before creating a scan identity because its Python
 runtime cannot evaluate the plugin's type annotations. No successful formal
 Codex Security scan is claimed. A source-diff review and dependency assessment
 are recorded separately; the reviewed implementation range is
-`cbd7f4c51ddf223735f939e21f8624fc8c78e95e..231e1834b171fad554ccad7fd45f07a2f1d1b9c1`
+`cbd7f4c51ddf223735f939e21f8624fc8c78e95e..915920c2b5de770143c9fff490922edfb03773a8`
 through successive immutable review ranges.
-An independent reviewer examined all 26 changed files and supporting version,
+An independent reviewer examined all 26 files in the initial implementation diff,
+subsequent changed files, and supporting version,
 storage, recovery, filesystem and launcher code. No actionable security
 vulnerabilities were found in that range. A subsequent packaging guard requires
 a clean source checkout so generated notices match the archived commit; this
 guard, installation orchestration, Windows assembler prerequisite, and environment
-lookup received follow-up reviews with no actionable security findings. Previously
+lookup, and structured launcher arguments received follow-up reviews with no actionable security findings. Previously
 recorded async-scope behavior is outside the
 application's exercised execution path. The external consumer launcher remains
 an upstream issue; stable integration explicitly requires the tested isolated
 wrapper described in OPERATOR_ADAPTER.md.
 
-Final verification and publication receipts are appended after the gates pass.
+Publication and public-download receipts are maintained in the latest repository
+version of this document, after immutable archives have been produced.
 
 Machine-readable dependency evidence:
 [runtime audit](release-evidence/runtime-audit-0.3.0.json) and
@@ -72,3 +74,29 @@ system dynamic libraries. The build profile is part of the runtime cache key;
 native filesystem and API conformance gates must pass before a cache is saved.
 These settings describe the distributed binaries, not a cross-platform performance
 guarantee. Existing benchmark reports retain their own host and workload scope.
+
+## Verification on 2026-09-23
+
+[CI run 35903555076](https://github.com/kujolang/bluepencil/actions/runs/35903555076)
+passed all 12 jobs at application commit
+`915920c2b5de770143c9fff490922edfb03773a8`:
+
+- Full application validation: 304 assertions on each of five native platforms.
+- Each packaged archive: runtime compatibility probe, 21 isolated public-launcher
+  assertions, and 46 historical upgrade/restore assertions.
+- Linux minimal offline installation: Ubuntu 22.04/24.04 x64 and 24.04 ARM64.
+- Downloaded, checksummed archives on seven fresh hosted VMs: Windows Server
+  2022/2025, Windows 11 ARM using x64 emulation, and macOS 15/26 on both Intel and
+  Apple Silicon. Each passes 21 launcher and 46 upgrade assertions; launcher
+  execution denies network access on macOS and blocks it on Windows.
+
+The exact runtime's native filesystem, directory/API, bounded-stdin, rooted-digest,
+and lexical-scope conformance gates passed before its platform caches were saved.
+The local application gate also passes 304 assertions. The real external consumer
+sandbox passes seven assertions against `kujo-workflows` commit
+`7a84d19ec960bc2c59155e7c5f1c8634d25d8de7`, using the documented isolated wrapper.
+No live provider or publication effects were exercised by that integration test.
+
+The only subsequent pre-publication changes are documentation and release evidence.
+The final archive-producing CI run must pass the same matrix before publication;
+its exact commit and downloadable asset checksums are recorded with publication.
