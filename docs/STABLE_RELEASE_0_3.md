@@ -38,12 +38,15 @@ The security workbench failed before creating a scan identity because its Python
 runtime cannot evaluate the plugin's type annotations. No successful formal
 Codex Security scan is claimed. A source-diff review and dependency assessment
 are recorded separately; the reviewed implementation range is
-`cbd7f4c51ddf223735f939e21f8624fc8c78e95e..68f502cb35d3ddfc336bae56041466b38b92e261`.
+`cbd7f4c51ddf223735f939e21f8624fc8c78e95e..231e1834b171fad554ccad7fd45f07a2f1d1b9c1`
+through successive immutable review ranges.
 An independent reviewer examined all 26 changed files and supporting version,
 storage, recovery, filesystem and launcher code. No actionable security
 vulnerabilities were found in that range. A subsequent packaging guard requires
 a clean source checkout so generated notices match the archived commit; this
-guard and documentation updates received a follow-up review. Previously recorded async-scope behavior is outside the
+guard, installation orchestration, Windows assembler prerequisite, and environment
+lookup received follow-up reviews with no actionable security findings. Previously
+recorded async-scope behavior is outside the
 application's exercised execution path. The external consumer launcher remains
 an upstream issue; stable integration explicitly requires the tested isolated
 wrapper described in OPERATOR_ADAPTER.md.
@@ -58,3 +61,14 @@ The lockfile SHA-256 is
 `cargo-audit 0.22.2` used advisory database commit
 `f7dc4b2860b29978f400fda0aab31cc4dbd21134`.
 The same Cargo inputs and Rust sources were verified against the required pin.
+
+## Distribution build profile
+
+All five bundles use the locked source pin with default optional features disabled,
+release optimization level 1, LTO disabled, and 16 codegen units. Windows targets
+`x86_64-pc-windows-msvc` with static CRT and static OpenSSL; PE dependency checks
+reject Visual C++ redistributable dependencies. macOS dependency checks allow only
+system dynamic libraries. The build profile is part of the runtime cache key;
+native filesystem and API conformance gates must pass before a cache is saved.
+These settings describe the distributed binaries, not a cross-platform performance
+guarantee. Existing benchmark reports retain their own host and workload scope.
