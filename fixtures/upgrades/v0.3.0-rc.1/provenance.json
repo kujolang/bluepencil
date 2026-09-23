@@ -1,0 +1,38 @@
+{
+  "files": [
+    {
+      "path": "metadata.json",
+      "sha256": "ebd843dba27166b6c395c4da75639478ef5022a4418cd1dd073c3bee95d28490"
+    },
+    {
+      "path": "records/.bluepencil-directory",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "records/review-legacy.json",
+      "sha256": "4f1c378092ab95ce9e97d9236e06a19a39122286f96c7f32548d867f03ac568c"
+    },
+    {
+      "path": "history/.bluepencil-directory",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "history/fdfccd98ea840a0f8e7347371ce69c7f.json",
+      "sha256": "178010599ca5cfd802a7488a0474297c4e24ce72f92348746d2b713b73e8bc71"
+    },
+    {
+      "path": "transactions/.bluepencil-directory",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "transactions/review-legacy.json",
+      "sha256": "bf067d43fad74b0aef3abbdfb729b91c398eaddfecd16d8201c88bebbf3ba6b5"
+    }
+  ],
+  "generation": "Actual tagged CLI from its own working directory; review-legacy, fixtures/core.json, actor upgrade-fixture, timestamp 2026-09-22T12:00:00Z. Metadata timestamps and RC owner token are frozen fixture data.",
+  "repository": "https://github.com/kujolang/bluepencil",
+  "runtime_commit": "262b3e7517ac47edca843120dd8689c0c820d62e",
+  "schema_version": "1.0.0",
+  "source_commit": "e70621f6d058fd5149df9646eb8eeadfa32d67e6",
+  "source_tag": "v0.3.0-rc.1"
+}

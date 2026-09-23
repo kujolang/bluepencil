@@ -1,6 +1,6 @@
 # BluePencil
 
-[![Version](https://img.shields.io/badge/version-0.3.0--rc.1-black)](VERSION)
+[![Version](https://img.shields.io/badge/version-0.3.0-black)](VERSION)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 [![built with Kujo](https://img.shields.io/badge/built%20with-Kujo-white.svg)](https://github.com/kujolang/kujo)
 [![CI](https://github.com/kujolang/bluepencil/actions/workflows/validate.yml/badge.svg)](https://github.com/kujolang/bluepencil/actions/workflows/validate.yml)
@@ -12,7 +12,7 @@ brand integrity, format fidelity, and strategic purpose.
 
 ## Readiness and scope
 
-BluePencil 0.3.0-rc.1 is a local editorial evidence CLI written in
+BluePencil 0.3.0 is a local editorial evidence CLI written in
 [Kujo](https://github.com/kujolang/kujo). It records human judgments, enforces
 all eight ratings and blocker precedence, compares records, and binds optional
 artifacts by SHA-256. The vendored calibration corpus contains 18 blind pairs
@@ -27,7 +27,9 @@ the [September readiness assessment](docs/READINESS_REVIEW_2026-09-22.md)
 before relying on it for regulated or shared-host workflows. Further product
 directions are in the [new follow-up worklist](docs/NEXT_SESSION_AFTER_0_3_RC1.md);
 the [execution ledger](docs/NEXT_SESSION_EXECUTION_2026-09-22.md) records this
-release candidate's implementation and verification evidence.
+earlier release candidate's implementation and verification evidence. See the
+[stable release evidence](docs/STABLE_RELEASE_0_3.md) and
+[supported environments](docs/SUPPORTED_ENVIRONMENTS.md) for 0.3.0.
 
 Evaluation commands provide blind calibration scoring/trends, trusted-key HMAC
 bundle verification and upgrade checks, deterministic format checks, and
@@ -39,15 +41,16 @@ and [workflow contracts](docs/WORKFLOWS.md).
 ## Quick install
 
 Download the archive and matching `.sha256` file for your platform from the
-[0.3.0-rc.1 release](https://github.com/kujolang/bluepencil/releases/tag/v0.3.0-rc.1).
-The Linux x64, macOS ARM64, and Windows x64 bundles include the exact required
+[0.3.0 release](https://github.com/kujolang/bluepencil/releases/tag/v0.3.0).
+The Linux x64/ARM64, macOS Intel/Apple Silicon, and Windows x64 bundles include the exact required
 Kujo runtime. Verify the archive before extracting it: `sha256sum -c FILE.sha256`
 on Linux, `shasum -a 256 -c FILE.sha256` on macOS, or compare
 `Get-FileHash FILE.tar.gz -Algorithm SHA256` with the checksum file in PowerShell.
 Then run `bin/bluepencil` (Windows: `bin\bluepencil.cmd`) from the extracted
-folder. Keep the full folder together. Linux installation is tested on Ubuntu
-24.04; platform CI is additional compatibility evidence, not support for every
-OS release. These are checksummed release candidates, not signed installers.
+folder. Keep the full folder together. Supported OS baselines and installation evidence are listed in
+[Supported environments](docs/SUPPORTED_ENVIRONMENTS.md). These are checksummed
+archives, not signed installers. Follow [Upgrade and restore](docs/UPGRADING.md)
+before replacing an existing installation.
 
 For a source checkout with an independently supplied compatible runtime:
 

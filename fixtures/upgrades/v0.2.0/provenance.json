@@ -1,0 +1,22 @@
+{
+  "files": [
+    {
+      "path": "metadata.json",
+      "sha256": "87d0edf8abf8ed4ce045830b6d6112d83b4d1e4ad2e96fae1ee465a438c38077"
+    },
+    {
+      "path": "records/review-legacy.json",
+      "sha256": "de0e6e983dced318607f007a799b257e9e756a5c3058cc9aabb03e44ded70c68"
+    },
+    {
+      "path": "history/fdfccd98ea840a0f8e7347371ce69c7f.json",
+      "sha256": "4deb794bd01b668170de32d7950f85501bbe9cba9732eff2ab1ad7cd51a78fd6"
+    }
+  ],
+  "generation": "Actual tagged CLI from its own working directory; review-legacy, fixtures/core.json, actor upgrade-fixture, timestamp 2026-09-22T12:00:00Z. Metadata timestamps and RC owner token are frozen fixture data.",
+  "repository": "https://github.com/kujolang/bluepencil",
+  "runtime_commit": "262b3e7517ac47edca843120dd8689c0c820d62e",
+  "schema_version": "1.0.0",
+  "source_commit": "618ebc24bc121b63d7ea36affd28770683eb1d96",
+  "source_tag": "v0.2.0"
+}

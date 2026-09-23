@@ -66,14 +66,18 @@ measure agreement before adjudication, and avoid tuning an answer key to a
 preferred model. Add role and accessibility coverage only with documented
 licensing and independently supplied judgments.
 
-## 5. Graduate distribution deliberately
+## 5. Maintain the stable distribution contract
+
+BluePencil 0.3.0 completes the initial stable-distribution work: five native
+bundles, explicit OS baselines, clean launcher checks, and historical
+upgrade/restore coverage. See [stable release evidence](STABLE_RELEASE_0_3.md).
 
 Retain the exact runtime source pin and behavioral probe until an official
-Kujo release ships every required API. For a stable BluePencil release, repeat
-clean installation on explicitly supported OS baselines, verify downloaded
-asset checksums, and exercise upgrade/restore of immutable legacy records.
-Additional CPU architectures require their own build and installation evidence.
+Kujo release ships every required API. Repeat clean-install, checksum, dependency,
+and upgrade/restore gates for each release. Additional CPU architectures require
+their own build and installation evidence. Signed or notarized distribution is
+a separate packaging improvement; the current archives provide SHA-256 checksums.
 
 Authenticated collaboration remains a product decision. Use
 [the collaboration requirements](design/COLLABORATION.md) before implementing a
-service; the current release candidate adds no remote authentication boundary.
+service; the stable local CLI adds no remote authentication boundary.

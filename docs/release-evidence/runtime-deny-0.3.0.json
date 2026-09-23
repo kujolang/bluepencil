@@ -1,0 +1,254 @@
+{
+  "cargo_deny": "0.20.2",
+  "config": "scripts/runtime-deny.toml",
+  "lock_sha256": "8fc3a34a62b13a84a02a823d78934dad5f6be1cb7f9dac3a9e7caf96b2dd05d6",
+  "no_default_features": true,
+  "runtime_commit": "262b3e7517ac47edca843120dd8689c0c820d62e",
+  "schema_version": "1.0.0",
+  "summary": {
+    "advisories": {
+      "errors": 0,
+      "helps": 0,
+      "notes": 0,
+      "warnings": 0
+    },
+    "bans": {
+      "errors": 0,
+      "helps": 0,
+      "notes": 0,
+      "warnings": 15
+    },
+    "licenses": {
+      "errors": 0,
+      "helps": 391,
+      "notes": 0,
+      "warnings": 0
+    },
+    "sources": {
+      "errors": 0,
+      "helps": 0,
+      "notes": 0,
+      "warnings": 0
+    }
+  },
+  "warnings": [
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "base64",
+          "version": "0.21.7"
+        },
+        {
+          "name": "base64",
+          "version": "0.22.1"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'base64'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "core-foundation",
+          "version": "0.9.4"
+        },
+        {
+          "name": "core-foundation",
+          "version": "0.10.1"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'core-foundation'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "cpufeatures",
+          "version": "0.2.17"
+        },
+        {
+          "name": "cpufeatures",
+          "version": "0.3.1"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'cpufeatures'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "getrandom",
+          "version": "0.2.17"
+        },
+        {
+          "name": "getrandom",
+          "version": "0.3.4"
+        },
+        {
+          "name": "getrandom",
+          "version": "0.4.3"
+        }
+      ],
+      "message": "found 3 duplicate entries for crate 'getrandom'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "io-lifetimes",
+          "version": "2.0.4"
+        },
+        {
+          "name": "io-lifetimes",
+          "version": "3.0.1"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'io-lifetimes'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "phf",
+          "version": "0.12.1"
+        },
+        {
+          "name": "phf",
+          "version": "0.13.1"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'phf'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "phf_shared",
+          "version": "0.12.1"
+        },
+        {
+          "name": "phf_shared",
+          "version": "0.13.1"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'phf_shared'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "rand",
+          "version": "0.8.8"
+        },
+        {
+          "name": "rand",
+          "version": "0.10.2"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'rand'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "rand_core",
+          "version": "0.6.4"
+        },
+        {
+          "name": "rand_core",
+          "version": "0.10.1"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'rand_core'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "syn",
+          "version": "2.0.119"
+        },
+        {
+          "name": "syn",
+          "version": "3.0.4"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'syn'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "toml_datetime",
+          "version": "0.6.11"
+        },
+        {
+          "name": "toml_datetime",
+          "version": "1.1.1+spec-1.1.0"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'toml_datetime'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "toml_edit",
+          "version": "0.22.27"
+        },
+        {
+          "name": "toml_edit",
+          "version": "0.25.13+spec-1.1.0"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'toml_edit'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "untrusted",
+          "version": "0.7.1"
+        },
+        {
+          "name": "untrusted",
+          "version": "0.9.0"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'untrusted'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "windows-sys",
+          "version": "0.52.0"
+        },
+        {
+          "name": "windows-sys",
+          "version": "0.59.0"
+        },
+        {
+          "name": "windows-sys",
+          "version": "0.61.2"
+        }
+      ],
+      "message": "found 3 duplicate entries for crate 'windows-sys'"
+    },
+    {
+      "code": "duplicate",
+      "instances": [
+        {
+          "name": "winnow",
+          "version": "0.7.15"
+        },
+        {
+          "name": "winnow",
+          "version": "1.0.4"
+        }
+      ],
+      "message": "found 2 duplicate entries for crate 'winnow'"
+    }
+  ]
+}
