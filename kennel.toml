@@ -1,0 +1,29 @@
+[package]
+name = "bluepencil"
+version = "0.3.0"
+description = "Kujo-native editorial review, blockers, verdicts, disagreement, and quality calibration"
+license = "MIT"
+authors = ["Kujolang <contact@kujolang.ai>"]
+repository = "https://github.com/kujolang/bluepencil"
+documentation = "https://github.com/kujolang/bluepencil#readme"
+readme = "README.md"
+
+[package.exports]
+cli = "bluepencil.kujo"
+
+[kujo]
+minimum_version = "1.4.0"
+entry = "bluepencil.kujo"
+sources = ["."]
+includes = ["README.md", "LICENSE", "CHANGELOG.md", "SECURITY.md", "VERSION", "runtime-requirements.json", "kujo.toml", "bin", "docs", "examples", "fixtures", "schemas", "scripts", "tests"]
+excludes = [".git", ".bluepencil", ".kennel_tmp", "kennel_packages", "node_modules", "target", "dist", "build", "output", "__pycache__", ".runtime", ".loop-engineering"]
+
+[dependencies]
+
+[scripts]
+verify = "bash scripts/validate.sh"
+
+# The version floor does not replace the source-pinned runtime contract.
+[package.metadata]
+runtime_revision = "262b3e7517ac47edca843120dd8689c0c820d62e"
+runtime_requirements = "runtime-requirements.json"
