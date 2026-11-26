@@ -62,13 +62,15 @@ export func load_record(state, id) {
 // Resolve/check the state once per page; every read still independently walks
 // the descriptor-relative path without following links and enforces its cap.
 func load_record_at(directory, id) {
-    if !safe_id(id) { return {"ok":false,"code":"unsafe_id","error":"unsafe record id"} }
+    if !safe_id(id) { return {"ok":false,"code":"unsafe_id","error":"unsafe record id","read_bytes":0} }
     mut contents := ""
     try { contents = read_file_beneath(directory["root"],directory["relative"] + "/" + id + ".json",1048576) }
     except error { return {"ok":false,"code":"unsafe_record","error":"record could not be read within the filesystem boundary"} }
-    parsed := parse_object(contents, "record " + id); if !parsed["ok"] { return parsed }
-    if get(parsed["value"], "id", "") != id { return {"ok":false,"code":"id_mismatch","error":"record id does not match filename"} }
-    return {"ok":true,"value":parsed["value"],"checksum":sha256(contents)}
+    bytes := byte_length(contents)
+    parsed := parse_object(contents, "record " + id)
+    if !parsed["ok"] { parsed["read_bytes"] = bytes; return parsed }
+    if get(parsed["value"], "id", "") != id { return {"ok":false,"code":"id_mismatch","error":"record id does not match filename","read_bytes":bytes} }
+    return {"ok":true,"value":parsed["value"],"checksum":sha256(contents),"read_bytes":bytes}
 }
 
 export func list_records(state, kind, after, limit) {
@@ -80,15 +82,16 @@ export func list_records(state, kind, after, limit) {
     try { page = directory_page(dir,after,".json",1000) }
     except error { return {"records":records,"warnings":[{"id":"","code":"directory_scan_failed","error":"confined directory scan failed or exceeded 100000 entries"}],"truncated":true,"scanned":0,"next_cursor":after} }
     resolved_directory := rooted_path(dir)
-    mut ids := []
-    for name in page["names"] { ids = push(ids, substring(name,0,len(name)-5)) }
     truncated = page["truncated"]
-    mut retained_bytes := 0
-    for id in sort(ids) {
+    mut retained_bytes := 0; mut read_bytes := 0
+    for name in page["names"] {
+        id := substring(name,0,len(name)-5)
         if after == "" || id > after {
-            if scanned >= 1000 || len(records) >= limit { truncated = true; break }
+            // Reserve a full read before touching each file, including filtered records.
+            if scanned >= 1000 || len(records) >= limit || read_bytes + 1048576 > 8388608 { truncated = true; break }
             scanned = scanned + 1
             loaded := load_record_at(resolved_directory, id)
+            read_bytes = read_bytes + get(loaded,"read_bytes",1048576)
             if loaded["ok"] {
                 record := loaded["value"]
                 if kind == "" || get(record, "record_type", "") == kind {
@@ -101,5 +104,5 @@ export func list_records(state, kind, after, limit) {
             next_cursor = id
         }
     }
-    return {"records": records, "warnings": warnings, "truncated": truncated, "scanned": scanned, "next_cursor": next_cursor, "retained_bytes": retained_bytes}
+    return {"records": records, "warnings": warnings, "truncated": truncated, "scanned": scanned, "next_cursor": next_cursor, "retained_bytes": retained_bytes, "read_bytes": read_bytes}
 }

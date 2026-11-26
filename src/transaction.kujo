@@ -6,11 +6,15 @@ func journal_path(state, id) { return join_path(join_path(state, "transactions")
 func projection_path(state, id) { return join_path(join_path(state, "records"), id + ".json") }
 func event_path(state, journal) { return join_path(join_path(state, "history"), journal["event_id"] + ".json") }
 
-func exact_file(path, expected, maximum) {
-    if !path_is_file(path) || path_is_symlink(path) { return false }
-    if file_size(path) > maximum { return false }
-    return read_text(path, maximum) == expected
+func compare_file(path, expected, maximum) {
+    if !path_is_file(path) || path_is_symlink(path) || file_size(path) > maximum { return {"matches":false,"read_bytes":0} }
+    try {
+        text := read_text(path,maximum)
+        return {"matches":text==expected,"read_bytes":byte_length(text)}
+    } except error { return {"matches":false,"read_bytes":maximum} }
 }
+
+func exact_file(path, expected, maximum) { return compare_file(path,expected,maximum)["matches"] }
 
 export func read_transaction(state, id) {
     if !safe_id(id) { return failure("unsafe_id", "invalid transaction record id") }
@@ -19,8 +23,11 @@ export func read_transaction(state, id) {
     path := journal_path(state, id)
     if !path_is_file(path) || path_is_symlink(path) { return failure("transaction_missing", "immutable transaction intent not found") }
     if file_size(path) > 3145728 { return failure("transaction_too_large", "transaction intent exceeds 3 MiB") }
-    parsed := parse_object(read_text(path,3145728), "transaction intent")
-    if !parsed["ok"] { return parsed }
+    mut contents := ""
+    try { contents = read_text(path,3145728) }
+    except error { return failure("transaction_read_failed","transaction intent could not be read within its byte limit") }
+    parsed := parse_object(contents,"transaction intent")
+    if !parsed["ok"] { parsed["read_bytes"] = byte_length(contents); return parsed }
     journal := parsed["value"]
     if get(journal, "schema_version", "") != "1.0.0" || get(journal, "record_id", "") != id || type(get(journal, "owner", null)) != "string" || !regex_match(journal["owner"], "^[a-f0-9-]{36}$") {
         return failure("invalid_transaction", "transaction identity is invalid")
@@ -38,17 +45,18 @@ export func read_transaction(state, id) {
     if get(record["value"], "id", "") != id || get(journal, "event_id", "") != expected_id || get(event["value"], "record_id", "") != id || get(event["value"], "record_sha256", "") != journal["record_sha256"] || get(event["value"], "actor", null) != get(record["value"], "actor", null) || get(event["value"], "at", null) != get(record["value"], "created_at", null) {
         return failure("invalid_transaction", "transaction record and event disagree")
     }
-    return {"ok": true, "value": journal}
+    return {"ok":true,"value":journal,"read_bytes":byte_length(contents)}
 }
 
 export func inspect_transaction(state, id) {
     loaded := read_transaction(state, id)
     if !loaded["ok"] { return loaded }
     journal := loaded["value"]
-    record_ok := exact_file(projection_path(state, id), journal["record_text"], 1048576)
-    event_ok := exact_file(event_path(state, journal), journal["event_text"], 65536)
-    complete := record_ok && event_ok
-    return {"ok": true, "value": {"record_id": id, "owner": journal["owner"], "created_at": journal["created_at"], "record_published": record_ok, "event_published": event_ok, "complete": complete, "record_sha256": journal["record_sha256"]}}
+    record := compare_file(projection_path(state,id),journal["record_text"],1048576)
+    event := compare_file(event_path(state,journal),journal["event_text"],65536)
+    complete := record["matches"] && event["matches"]
+    bytes := loaded["read_bytes"] + record["read_bytes"] + event["read_bytes"]
+    return {"ok":true,"read_bytes":bytes,"value":{"record_id":id,"owner":journal["owner"],"created_at":journal["created_at"],"record_published":record["matches"],"event_published":event["matches"],"complete":complete,"record_sha256":journal["record_sha256"]}}
 }
 
 export func prepare_transaction(state, record) {
@@ -56,10 +64,11 @@ export func prepare_transaction(state, record) {
     if !safe_id(id) { return failure("unsafe_id", "invalid record id") }
     serialized := to_json_pretty(record) + "\n"
     if byte_length(serialized) > 1048576 { return failure("record_too_large", "serialized record exceeds 1 MiB") }
+    checksum := sha256(serialized)
     event_id := substring(sha256(record["created_at"] + "\n" + id), 0, 32)
-    event := {"schema_version":"1.0.0","event":"record.created","record_id":id,"actor":record["actor"],"at":record["created_at"],"record_sha256":sha256(serialized)}
+    event := {"schema_version":"1.0.0","event":"record.created","record_id":id,"actor":record["actor"],"at":record["created_at"],"record_sha256":checksum}
     event_text := to_json_pretty(event) + "\n"
-    journal := {"schema_version":"1.0.0","record_id":id,"owner":uuid_v4(),"created_at":now_utc(),"record_sha256":sha256(serialized),"event_sha256":sha256(event_text),"event_id":event_id,"record_text":serialized,"event_text":event_text}
+    journal := {"schema_version":"1.0.0","record_id":id,"owner":uuid_v4(),"created_at":now_utc(),"record_sha256":checksum,"event_sha256":sha256(event_text),"event_id":event_id,"record_text":serialized,"event_text":event_text}
     if file_exists(projection_path(state, id)) { return failure("duplicate_id", "record already exists") }
     if file_exists(event_path(state, journal)) { return failure("history_conflict", "audit history event already exists") }
     rendered := to_json(journal) + "\n"

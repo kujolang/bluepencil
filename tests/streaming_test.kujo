@@ -38,5 +38,24 @@ failed_stream := spawn_process([runtime,"run","bluepencil.kujo","--","export-str
 check(failed_stream.exitcode != 0,"corruption fails stream after partial output")
 failed_lines := split(trim(failed_stream.stdout),"\n"); final := parse_json(failed_lines[len(failed_lines)-1])
 check(!final["ok"] && !final["data"]["complete"],"partial stream cannot claim completion")
+filtered_root := create_temp_dir(".",".bluepencil-filter-")
+resolved_filter := rooted_path(filtered_root); filtered_root = resolved_filter["root"] + resolved_filter["relative"]
+initialize(filtered_root,{"tool":"bluepencil","contract_version":"1.0.0"})
+mut filter_id := 100
+while filter_id < 117 {
+    id := "review-"+to_string(filter_id)
+    kind := "memo"; if filter_id == 116 { kind = "review" }
+    write_file(filtered_root+"/records/"+id+".json",to_json({"id":id,"record_type":kind,"payload":{"padding":padding}}),true)
+    filter_id = filter_id+1
+}
+filtered := list_records(filtered_root,"review","",1000)
+check(filtered["truncated"] && len(filtered["records"])==0 && filtered["next_cursor"]!="","record filter stops on an input-byte budget even with zero retained records")
+continued := list_records(filtered_root,"review",filtered["next_cursor"],1000)
+check(len(continued["records"])==1 && continued["records"][0]["id"]=="review-116","input-byte continuation preserves the matching record")
+filtered_stream := spawn_process([runtime,"run","bluepencil.kujo","--","report-stream","--state",filtered_root,"--type","review","--limit","1000"],{"timeout_ms":60000,"max_output_bytes":16384})
+filtered_lines := split(trim(filtered_stream.stdout),"\n")
+filtered_receipt := parse_json(filtered_lines[len(filtered_lines)-1])
+check(filtered_stream.exitcode==0 && filtered_receipt["data"]["complete"] && filtered_receipt["data"]["records"]==1 && filtered_receipt["data"]["pages"]==2,"report stream follows an empty filtered page")
+cleanup(filtered_root)
 cleanup(root)
 print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

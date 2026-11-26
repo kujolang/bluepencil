@@ -41,6 +41,17 @@ page := list_history(root, "", 1)
 check(page["ok"] && page["value"]["events"][0]["event"]["record_id"] == "review-audit", "history returns actual event")
 check(dispatch("audit", parse_args(["--state",root], []))["ok"], "CLI audit dispatch")
 check(!list_history(root, "../escape", 10)["ok"], "history cursor rejects traversal")
+mut padding := "x"
+while byte_length(padding) < 700000 { padding = padding + padding }
+padding = substring(padding,0,700000)
+for index in range(100,114) {
+    record["id"] = "review-limit-"+to_string(index)
+    body := record["payload"]; body["padding"] = padding; record["payload"] = body
+    check(save_new(root,record)["ok"],"large consistent audit input "+to_string(index))
+}
+limited := audit_state(root)
+check(!limited["ok"] && limited["code"]=="audit_incomplete" && limited["value"]["verified"]<15,"audit stops reconciliation on its aggregate byte budget")
+check(!has_issue(limited,"missing_event"),"partial reconciliation does not report unvisited records as missing events")
 for dir in ["records", "history", "locks", "transactions"] { for name in list_dir(root + "/" + dir) { delete_file(root + "/" + dir + "/" + name) }; os_rmdir(root + "/" + dir) }
 delete_file(root + "/metadata.json"); os_rmdir(root)
 print(to_string(passed) + " passed; " + to_string(failed) + " failed"); if failed > 0 { exit(1) }

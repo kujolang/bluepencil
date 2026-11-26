@@ -16,10 +16,12 @@ export func load_event(state, name) {
         return {"ok": false, "code": "unsafe_event", "error": "history event must be a regular non-symlink file"}
     }
     if file_size(path) > 65536 { return {"ok": false, "code": "event_too_large", "error": "history event exceeds 64 KiB"} }
-    mut parsed := null
-    try { parsed = parse_object(read_text(path,65536), "history event") }
+    mut contents := ""
+    try { contents = read_text(path,65536) }
     except error { return {"ok": false, "code": "event_read_failed", "error": "could not read history event"} }
-    if !parsed["ok"] { return parsed }
+    bytes := byte_length(contents)
+    parsed := parse_object(contents,"history event")
+    if !parsed["ok"] { parsed["read_bytes"] = bytes; return parsed }
     event := parsed["value"]
     if get(event, "schema_version", "") != "1.0.0" || get(event, "event", "") != "record.created" || !safe_id(get(event, "record_id", null)) || !valid_timestamp(get(event, "at", null)) {
         return {"ok": false, "code": "invalid_event", "error": "history event identity or version is invalid"}
@@ -27,7 +29,7 @@ export func load_event(state, name) {
     if type(get(event, "actor", null)) != "string" || trim(event["actor"]) == "" || type(get(event, "record_sha256", null)) != "string" || !regex_match(event["record_sha256"], "^[a-f0-9]{64}$") {
         return {"ok": false, "code": "invalid_event", "error": "history event actor or checksum is invalid"}
     }
-    return {"ok": true, "value": event}
+    return {"ok":true,"value":event,"read_bytes":bytes}
 }
 
 export func list_history(state, after, limit) {
@@ -37,23 +39,23 @@ export func list_history(state, after, limit) {
     if after != "" && !safe_cursor(after) { return {"ok": false, "code": "unsafe_cursor", "error": "invalid history cursor"} }
     dir := history_dir(state)
     if is_link(dir) || (file_exists(dir) && !path_is_dir(dir)) { return {"ok": false, "code": "unsafe_state", "error": "history path must be a regular directory"} }
-    mut scanned := 0
+    mut scanned := 0; mut read_bytes := 0
     if path_is_dir(dir) {
         page := directory_page(dir,after,".json",limit)
         truncated = page["truncated"]
-        mut names := []
-        for name in page["names"] { names = push(names,substring(name,0,len(name)-5)) }
-        for name in sort(names) {
+        for filename in page["names"] {
+            name := substring(filename,0,len(filename)-5)
             if after == "" || name > after {
-                if scanned >= limit { truncated = true; break }
+                if scanned >= limit || read_bytes + 65536 > 8388608 { truncated = true; break }
                 cursor = name; scanned = scanned + 1
                 loaded := load_event(state, name)
+                read_bytes = read_bytes + get(loaded,"read_bytes",65536)
                 if loaded["ok"] { events = push(events, {"event_id": name, "event": loaded["value"]}) }
                 else { warnings = push(warnings, {"event_id": name, "code": loaded["code"], "error": loaded["error"]}) }
             }
         }
     }
-    return {"ok": true, "value": {"events": events, "warnings": warnings, "scanned": scanned, "next_cursor": cursor, "truncated": truncated}}
+    return {"ok": true, "value": {"events": events, "warnings": warnings, "scanned":scanned,"next_cursor":cursor,"truncated":truncated,"read_bytes":read_bytes}}
 }
 
 export func audit_state(state) {
@@ -64,11 +66,14 @@ export func audit_state(state) {
     for warning in listing["warnings"] { issues = push(issues, warning) }
     for warning in history["value"]["warnings"] { issues = push(issues, warning) }
     mut seen := {}; mut verified := 0
+    mut reconciliation_complete := true; mut reconciliation_bytes := 0
     for entry in history["value"]["events"] {
+        if reconciliation_bytes + 1048576 > 8388608 { reconciliation_complete = false; break }
         event := entry["event"]; id := event["record_id"]
         if has_key(seen, id) == 1 { issues = push(issues, {"id": id, "code": "duplicate_event", "error": "multiple creation events reference this record"}) }
         seen[id] = true
         loaded := load_record(state, id)
+        reconciliation_bytes = reconciliation_bytes + get(loaded,"read_bytes",1048576)
         if !loaded["ok"] { issues = push(issues, {"id": id, "code": "orphan_event", "error": "creation event has no readable record"}) }
         else {
             record := loaded["value"]
@@ -81,11 +86,11 @@ export func audit_state(state) {
         }
     }
     for record in listing["records"] {
-        if has_key(seen, record["id"]) == 0 && !history["value"]["truncated"] {
+        if has_key(seen, record["id"]) == 0 && reconciliation_complete && !history["value"]["truncated"] {
             issues = push(issues, {"id": record["id"], "code": "missing_event", "error": "record has no valid creation event"})
         }
     }
-    mut transactions_complete := true
+    mut transactions_complete := true; mut transaction_bytes := 0
     transaction_dir := join_path(state, "transactions")
     if file_exists(transaction_dir) {
         if !path_is_dir(transaction_dir) || path_is_symlink(transaction_dir) { return {"ok":false,"code":"unsafe_state","error":"transaction directory is unsafe"} }
@@ -94,19 +99,20 @@ export func audit_state(state) {
         transactions_complete = !transactions["truncated"]
         for name in transactions["names"] {
             if ends_with(name, ".json") {
-                if inspected >= 1000 { transactions_complete = false; break }
+                if inspected >= 1000 || transaction_bytes + 4259840 > 33554432 { transactions_complete = false; break }
                 inspected = inspected + 1
                 id := substring(name, 0, len(name) - 5)
                 transaction := inspect_transaction(state, id)
+                transaction_bytes = transaction_bytes + get(transaction,"read_bytes",3145728)
                 if !transaction["ok"] { issues = push(issues, {"id":id,"code":transaction["code"],"error":transaction["error"]}) }
                 else if !transaction["value"]["complete"] { issues = push(issues, {"id":id,"code":"transaction_incomplete","error":"immutable intent has unpublished or conflicting projections; inspect before recovery"}) }
             }
         }
     }
-    complete := !listing["truncated"] && !history["value"]["truncated"] && transactions_complete
+    complete := !listing["truncated"] && !history["value"]["truncated"] && reconciliation_complete && transactions_complete
     ok := complete && len(issues) == 0
     mut code := null; mut error := null
     if !ok { code = "audit_failed"; error = "record and event reconciliation failed" }
-    if !complete { code = "audit_incomplete"; error = "audit exceeds the record-byte or 1000 record/event scan budget" }
+    if !complete { code = "audit_incomplete"; error = "audit exceeds the byte or record/event scan budget" }
     return {"ok": ok, "code": code, "error": error, "value": {"valid": ok, "complete": complete, "verified": verified, "issues": issues, "trust_boundary": "local checksums; no external trust anchor"}}
 }
