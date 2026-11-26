@@ -19,7 +19,7 @@ ordered file identities, byte counts, and SHA-256 values using a versioned,
 length-delimited accumulator. Metadata is included. Creation repeats the scan
 and fails if the digest changes. Operators must quiesce writers during capture;
 two equal observations are not a linearizable snapshot against an adversary.
-Capture inherits the current complete-audit budget (1,000 records/events and a 2 MiB record page); exceeding it fails explicitly. No partial checkpoint is published. The completed JSON receipt is bounded and
+Capture inherits the complete-audit limits, including record, event, and transaction input budgets. Exceeding those limits fails explicitly. No partial checkpoint is published. The completed JSON receipt is bounded and
 written atomically without replacement.
 
 Verification reads an explicitly supplied checkpoint, validates its version and
