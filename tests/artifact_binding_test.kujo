@@ -1,4 +1,5 @@
 from src.core import dispatch
+from src.storage import initialize, save_new
 from src.args import parse_args
 from src.filesystem import digest_file
 from tests.support import temp_path, cleanup
@@ -19,7 +20,20 @@ while chunks < 9 { append_file(artifact_file,artifact_chunk); chunks += 1 }
 let large := dispatch("review",parse_args(["--state",artifact_root + "/large-state","--input","fixtures/core.json","--actor","fixture-reviewer","--id","review-large-artifact","--path",artifact_file],[]))
 check(large["ok"] && large["value"]["record"]["artifact"]["bytes"] == 9437184,"artifact larger than whole-file reader cap is bound")
 while chunks < 64 { append_file(artifact_file,artifact_chunk); chunks += 1 }
-check(digest_file(artifact_file,67108864)["bytes"] == 67108864,"exact 64 MiB digest succeeds")
+let digest_at_limit := digest_file(artifact_file,67108864)
+check(digest_at_limit["bytes"] == 67108864,"exact 64 MiB digest succeeds")
+let bulk_state := artifact_root + "/bulk-state"
+initialize(bulk_state,{"tool":"bluepencil","contract_version":"1.0.0"})
+mut repeated := large["value"]["record"]
+repeated["artifact"] = {"path":artifact_file,"bytes":digest_at_limit["bytes"],"sha256":digest_at_limit["sha256"]}
+for suffix in ["first","second","third"] {
+    repeated["id"] = "review-bulk-"+suffix
+    check(save_new(bulk_state,repeated)["ok"],"store bounded validation fixture "+suffix)
+}
+bulk := dispatch("validate",parse_args(["--state",bulk_state],[]))
+check(!bulk["ok"] && bulk["code"]=="validation_incomplete" && bulk["value"]["checked"]==2,"bulk validation reserves a total artifact-byte budget")
+one := dispatch("validate",parse_args(["--state",bulk_state,"--id","review-bulk-third"],[]))
+check(one["ok"],"explicit record validation works after bulk validation stops")
 append_file(artifact_file,"x")
 mut overflow_rejected := false
 try { digest_file(artifact_file,67108864) } except error { overflow_rejected = true }

@@ -116,8 +116,12 @@ export func validate_record(record, p) {
         if type(get(artifact,"path",null)) != "string" || type(get(artifact,"bytes",null)) != "int" || type(get(artifact,"sha256",null)) != "string" || !regex_match(artifact["sha256"], "^[a-f0-9]{64}$") { return {"ok":false,"code":"invalid_artifact","error":"artifact requires a path, integer byte count, and SHA-256"} }
         path := get(artifact, "path", "")
         if path == "" || !path_is_file(path) || path_is_symlink(path) { return {"ok": false, "code": "artifact_missing", "error": "bound artifact is missing or unsafe"} }
-        if file_size(path) > 67108864 || get(artifact, "bytes", -1) != file_size(path) { return {"ok": false, "code": "artifact_size_drift", "error": "bound artifact size is invalid or has drifted"} }
-        digest := digest_file(path,67108864)
+        observed := file_size(path)
+        if observed > 67108864 || artifact["bytes"] != observed { return {"ok":false,"code":"artifact_size_drift","error":"bound artifact size is invalid or has drifted"} }
+        maximum := observed; if observed == 0 { maximum = 1 }
+        mut digest := null
+        try { digest = digest_file(path,maximum) }
+        except error { return {"ok":false,"code":"artifact_read_failed","error":"bound artifact changed or could not be read within its recorded size"} }
         if digest["bytes"] != artifact["bytes"] || digest["sha256"] != get(artifact, "sha256", "") { return {"ok": false, "code": "checksum_drift", "error": "bound artifact checksum drift detected"} }
     }
     error := validate_command(record["command"], record["payload"], get(record, "artifact", null))
@@ -212,13 +216,24 @@ func dispatch_inner(command, parsed) {
     if has(p["validate_commands"], command) {
         id := flag(parsed, "id", "")
         if id != "" { loaded := load_record(state, id); if !loaded["ok"] { return loaded }; checked := validate_record(loaded["value"], p); if !checked["ok"] { return checked }; return {"ok": true, "value": {"valid": true, "id": id, "checksum": loaded["checksum"]}} }
-        listing := list_records(state, "", "", 1000); mut invalid := []
-        for record in listing["records"] { checked := validate_record(record, p); if !checked["ok"] { invalid = push(invalid, {"id": record["id"], "code": checked["code"], "error": checked["error"]}) } }
-        valid := len(invalid) == 0 && len(listing["warnings"]) == 0 && !listing["truncated"]
+        listing := list_records(state,"","",1000)
+        mut invalid := []; mut truncated := listing["truncated"]
+        mut checked_count := 0; mut artifact_budgeted := 0
+        for record in listing["records"] {
+            expected := get(get(record,"artifact",null),"bytes",-1)
+            if type(expected) == "int" && expected >= 0 && expected <= 67108864 {
+                charge := expected; if expected == 0 { charge = 1 }
+                if artifact_budgeted + charge > 134217728 { truncated = true; break }
+                artifact_budgeted = artifact_budgeted + charge
+            }
+            checked := validate_record(record,p); checked_count = checked_count + 1
+            if !checked["ok"] { invalid = push(invalid,{"id":record["id"],"code":checked["code"],"error":checked["error"]}) }
+        }
+        valid := len(invalid)==0 && len(listing["warnings"])==0 && !truncated
         mut code := null; mut error := null
         if !valid { code = "validation_failed"; error = "one or more records failed validation" }
-        if listing["truncated"] { code = "validation_incomplete"; error = "validation scan limit reached; validate remaining records individually with --id" }
-        return {"ok": valid, "code": code, "error": error, "value": {"valid": valid, "checked": len(listing["records"]), "invalid": invalid, "storage_warnings": listing["warnings"], "truncated": listing["truncated"]}}
+        if truncated { code = "validation_incomplete"; error = "validation scan limit reached; validate remaining records individually with --id" }
+        return {"ok":valid,"code":code,"error":error,"value":{"valid":valid,"checked":checked_count,"invalid":invalid,"storage_warnings":listing["warnings"],"truncated":truncated,"artifact_bytes_budgeted":artifact_budgeted}}
     }
     if has(p["export_commands"], command) {
         limit_result := bounded_int(setting(parsed, config, "limit", 1000), 1000, 1, 1000); if !limit_result["ok"] { return limit_result }
